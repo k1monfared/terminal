@@ -1,2 +1,2 @@
 # terminal
-collection of projects and scripts arounf bash and shell
+A collection of projects and scripts around bash and shell
