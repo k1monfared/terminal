@@ -1,0 +1,38 @@
+#!/bin/bash
+
+## This scripts searches for a youtuve video given its ID and plays it N times. For example, the id for https://www.youtube.com/watch?v=2QTf8Yjn7Hk is the part after "v=", i.e. "2QTf8Yjn7Hk"
+## The usage is: ytn NUMBER VIDEI_ID, for example, to play the above video4 times use: ytn 10 2QTf8Yjn7Hk
+## If you let NUMBER to be 0 then it plays it on an endless loop, e.g. ytn 0 2QTf8Yjn7Hk
+
+if [[ $(echo $*) ]]; then
+	N=$1
+    searchterm="$2"
+else
+    read -p "Enter the video ID: " searchterm
+fi
+
+searchterm=$(echo $searchterm | sed -e 's/\ /+/g')
+
+video=$(youtube-dl -g https://youtube.com/v/$searchterm)
+
+[[ -f ~/Videos/$searchterm.mp4 ]] || wget -O - $video | tee ~/Videos/$searchterm.mp4 2>&1 > /dev/null
+
+if [[ $N -eq 0 ]]; then
+	c=1
+	d=1
+	while true; 
+	do 
+		echo "Playing the video for infinitely many times... round $d = $c"
+    	sleep 2;
+    	mplayer ~/Videos/$searchterm.mp4
+    	c=$((c+1))
+    	d=$d+1
+	done
+else
+	for (( c=1; c<=$N; c++ ))
+	do 
+		echo "Playing the video for $N times... round $c"
+		sleep 2;
+		mplayer ~/Videos/$searchterm.mp4
+	done
+fi

@@ -1,0 +1,54 @@
+#!/bin/bash
+
+## This scripts searches for a youtuve video given its ID and plays it using the other two scripts ytp and ytn. 
+## For example, the id for https://www.youtube.com/watch?v=2QTf8Yjn7Hk is the part after "v=", i.e. "2QTf8Yjn7Hk"
+## The usage is: yt NUMBER VIDEI_ID which plays the video NUMBER times, if NUMBER = 0, then it plays it forever
+## Or, yt VIDEI_ID which plays the video once
+## In either cases it searches the ~/Videos folder and if finds the file with that ID then plays it, otherwise, it just downloads the video from youtube with its youtube video ID and then plays it
+
+ARGS=$(getopt -o r:h -l "repeat:,help" -n "getopt.sh" -- "$@");
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
+HELP=false
+
+eval set -- "$ARGS";
+while true; do
+    case "$1" in
+        -r|--repeat)
+            shift;
+            if [ -n "$1" ]; then
+                N=$1
+                shift;
+            fi
+            ;;
+        -h|--help)
+            HELP=true
+            shift;
+            ;;
+        --)
+            if [ -n "$2" ]; then
+                VID_ID=$2
+                shift;
+            fi
+            break;
+            ;;
+    esac
+done
+
+#######################
+
+if [[ -n ${N} ]]; then
+    ytn ${N} ${VID_ID}
+else 
+	ytp ${VID_ID}
+fi
+
+if [[ ${HELP} == "true" ]]; then
+    echo "USAGE: $0 -r|--repeat NUMBER VIDEO_ID ; Downloads the video with VIDEO_ID and plays it in a loop for NUMBER times" | column -t -s';'
+    echo ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Set NUMBER = 0 for an infinite loop" | column -t -s';'
+    echo "USAGE: $0 VIDEO_ID ;;;;;;;;;;; Plays the video with VIDEO_ID" | column -t -s';'
+fi
+
+#######################

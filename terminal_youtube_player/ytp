@@ -1,0 +1,20 @@
+#!/bin/bash
+
+## This scripts searches for a youtuve video given its ID and plays it once using mplayer. For example, the id for https://www.youtube.com/watch?v=2QTf8Yjn7Hk is the part after "v=", i.e. "2QTf8Yjn7Hk"
+## The usage is: ytp VIDEI_ID, for example, for the above video use: ytp 2QTf8Yjn7Hk
+
+if [[ $(echo $*) ]]; then
+
+    searchterm="$*"
+
+else
+
+    read -p "Enter video ID: " searchterm
+
+fi
+
+searchterm=$(echo $searchterm | sed -e 's/\ /+/g')
+
+[[ -f ~/Videos/$searchterm.mp4 ]] || wget -O - $video | tee ~/Videos/$searchterm.mp4 2>&1 > /dev/null
+
+mplayer ~/Videos/$searchterm.mp4
