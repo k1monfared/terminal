@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash 
 
 STRING=$*
 BACK="/home/$USER/drafts"
