@@ -30,4 +30,4 @@ Note that not all pdf readers will support rendering the animation and many of t
     `16`: is the speed of the animation (frames per second I guess)  
     `masses_springs_frame-`is the common part of the names of the files for frames  
     and finally, `0` and `239` are start and end numbers in the files names that correspond to the first and last frames.
-This should be enough to get you going. Here is a sample [tex](simple_animation.tex) file and the resulting [pdf](simple_animation.pdf) file. Read this on my [blog](https://github.com/k1monfared/terminal/tree/main/latex/animate_pdf).
+This should be enough to get you going. Here is a sample [tex](simple_animation.tex) file and the resulting [pdf](simple_animation.pdf) file. Read this on my [blog](https://k1monfared.github.io/blog/2022_12_12.html).
