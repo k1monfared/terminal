@@ -1,5 +1,0 @@
-#!/bin/bash
-
-searchterm="$*"
-searchterm=$(echo $searchterm | sed -e 's/\ /+/g')
-firefox https://contacts.google.com/u/0/preview/search/$searchterm
