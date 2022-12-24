@@ -5,8 +5,25 @@
 # source "$bashscripts/bashrc_aliases"
 # export PATH="$PATH:$bashscripts"
 
-# load private info
+# system
+
+## load private info
 $bashscripts/bashrc.private
+
+## solving ibus access problem
+export GTK_IM_MODULE=ibus
+export XMODIFIERS=@im=ibus
+export QT_IM_MODULE=ibus
+## hibernation
+alias hib='sudo systemctl hibernate'
+
+## shortcuts
+alias search="sh $bashscripts/duckduckgo.sh"
+alias contacts="sh $bashscripts/contacts.sh"
+alias mic="sh $bashscripts/record.sh"
+alias organize="sh $bashscripts/organize_photos_monthly_this_folder.sh"
+alias jnb="jupyter notebook"
+alias cb="sh $bashscripts/copy_file_to_clipboard.sh"
 
 # todo.txt
 export TODOTXT_DEFAULT_ACTION=ls
@@ -18,19 +35,19 @@ complete -F _todo t
 alias aliases_edit="gedit $bashscripts/bashrc_aliases &"
 alias aliases_list="cat $bashscripts/bashrc_aliases"
 
-#apt aliases
+# apt
 alias ins="sudo apt install"
 alias upd="sudo apt update"
 alias upg="sudo apt upgrade -y"
 alias remove="sudo apt remove"
 
-#note aliases
+# note
 alias note="sh $bashscripts/note.sh"
 alias n="sh $bashscripts/quicknote.sh"
 alias ln="sh $bashscripts/lastnote.sh"
 alias drafts="sh $bashscripts/searchdrafts.sh"
 
-#github
+# github
 alias git_switch="sh $bashscripts/git_switch.sh"
 alias git_who="cat /home/$USER/opt/git_config/active_git_account"
 git_all ()
@@ -65,16 +82,10 @@ git_clone ()
     git_switch $account
 }
 
-
-#github gist aliases
+## github gist
 alias gist="sh $bashscripts/gist.sh"
 alias gistp="sh $bashscripts/publicgist.sh"
 alias g="sh $bashscripts/quickgist.sh"
-
-# solving ibus access problem
-export GTK_IM_MODULE=ibus
-export XMODIFIERS=@im=ibus
-export QT_IM_MODULE=ibus
 
 # libarary
 audiobooks_folder="/home/$USER/Documents/audiobook/"
@@ -86,14 +97,3 @@ libby_get ()
     book_name=$(sed -n $1p /tmp/libby_list)
     libby "/home/$USER/Downloads/$book_name"
 }
-
-#hibernation
-alias hib='sudo systemctl hibernate'
-
-#shortcuts
-alias search="sh $bashscripts/duckduckgo.sh"
-alias contacts="sh $bashscripts/contacts.sh"
-alias mic="sh $bashscripts/record.sh"
-alias organize="sh $bashscripts/organize_photos_monthly_this_folder.sh"
-alias jnb="jupyter notebook"
-alias cb="sh $bashscripts/copy_file_to_clipboard.sh"
