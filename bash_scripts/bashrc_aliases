@@ -2,8 +2,11 @@
 
 #define bashscripts folder address in the ~/.bashrc and then source this file there. e.g.
 # bashscripts="/home/$USER/bash_scripts"
-# source "$bashscripts/.bashrc"
+# source "$bashscripts/bashrc_aliases"
 # export PATH="$PATH:$bashscripts"
+
+# load private info
+$bashscripts/bashrc.private
 
 # to access this file without looking for it every time
 alias aliases_edit="gedit $bashscripts/bashrc_aliases &"
@@ -66,6 +69,17 @@ alias g="sh $bashscripts/quickgist.sh"
 export GTK_IM_MODULE=ibus
 export XMODIFIERS=@im=ibus
 export QT_IM_MODULE=ibus
+
+# libarary
+audiobooks_folder="/home/$USER/Documents/audiobook/"
+export audiobooks_folder
+alias libby="$bashscripts/overdrive/overdrive.sh download"
+alias libby_list="ls -t /home/$USER/Downloads | grep \.odm\$ > /tmp/libby_list && cat -n /tmp/libby_list"
+libby_get ()
+{
+    book_name=$(sed -n $1p /tmp/libby_list)
+    libby "/home/$USER/Downloads/$book_name"
+}
 
 #hibernation
 alias hib='sudo systemctl hibernate'
