@@ -2,9 +2,10 @@
 
 DATE=$(exiftool "$1" | grep 'Create Date' | awk '{print $4}')
 
-#if [ ${#DATE} -eq 0 ]
-#then
-#    DATE=$(exiftool "$1" | grep 'File Modification Date/Time' | awk '{print $5}')
-#fi
-
-echo "${DATE:0:4}-${DATE:5:2}"
+if [ ${#DATE} -eq 0 ]
+then
+    DATE=$(exiftool "$1" | grep 'File Modification Date/Time' | awk '{print $5}')
+    echo "${DATE:0:4}-${DATE:5:2}m"
+else
+    echo "${DATE:0:4}-${DATE:5:2}"
+fi
