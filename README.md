@@ -4,7 +4,7 @@ A collection of projects and scripts around bash and shell
 
 
 ## bashrc_alisases 
-Short little useful commmands 
+Little useful commmands 
 
 
 ### system
@@ -13,17 +13,25 @@ Short little useful commmands
 
 #### solving ibus access problem
 
+
 #### shortcuts
+Can't remember everything
 
 ### todo.txt
+Dealing with todo.txt
 
 ### apt
+Update repos, upgrade packages, or remove them.
 
 ### note
+Create a note quickly and keep a list of them with the ability to search full text and to retrive the last note.
+
 
 ### github
+Instead of typing 3 commands all the time...
 
 #### github gist
+Create a gist, commit, and push it quickly.
 
 ### libarary
 `libby <odm_file_path>` will download the audiobook to current working directory.
