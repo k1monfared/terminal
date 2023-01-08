@@ -6,7 +6,7 @@
 # export PATH="$PATH:$bashscripts"
 
 # load private info
-$bashscripts/bashrc.private
+source $bashscripts/bashrc.private
 
 # todo.txt
 export TODOTXT_DEFAULT_ACTION=ls
@@ -33,7 +33,16 @@ alias drafts="sh $bashscripts/searchdrafts.sh"
 #github
 alias git_switch="sh $bashscripts/git_switch.sh"
 alias git_who="cat /home/$USER/opt/git_config/active_git_account"
-git_all ()
+git_init ()
+{
+    cwd=$(basename "$(pwd)")
+    git init &&
+    git add --all &&
+    git commit -m "Initial commit" &&
+    gh repo create "$cwd" --private
+    git push --set-upstream origin main
+}
+git_push_all ()
 {
     message=$*
     if [[ $(echo $message) ]]; then
@@ -69,15 +78,14 @@ git_clone ()
 #github gist aliases
 alias gist="sh $bashscripts/gist.sh"
 alias gistp="sh $bashscripts/publicgist.sh"
-alias g="sh $bashscripts/quickgist.sh"
+alias gg="sh $bashscripts/quickgist.sh"
 
 # solving ibus access problem
 export GTK_IM_MODULE=ibus
 export XMODIFIERS=@im=ibus
 export QT_IM_MODULE=ibus
 
-# libarary
-audiobooks_folder="/home/$USER/Documents/audiobook/"
+# library
 export audiobooks_folder
 alias libby="$bashscripts/overdrive/overdrive.sh download"
 alias libby_list="ls -t /home/$USER/Downloads | grep \.odm\$ > /tmp/libby_list && cat -n /tmp/libby_list"
