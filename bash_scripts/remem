@@ -1,0 +1,10 @@
+#!/bin/bash
+memory_address="$HOME/drafts/memory"
+# Read the file and store its contents in a variable
+file_contents=$(cat $memory_address)
+
+# Read the last indented block of the file
+last_indented_block=$(echo "$file_contents" | grep -A9999 "^[ ]" | tail -n +2)
+
+# Output the last indented block
+echo "$last_indented_block"

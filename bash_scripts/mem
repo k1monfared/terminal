@@ -16,9 +16,6 @@
 #
 #     ...
 
-# a file for all the clipboard history
-memory_address="$HOME/drafts/memory"
-
 indent_clipboard() {
     # add indents to the content of the clipboard
     # call this like:
