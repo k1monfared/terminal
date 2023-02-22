@@ -5,15 +5,17 @@
 # source "$bashscripts/bashrc_aliases"
 # export PATH="$PATH:$bashscripts"
 
-<<<<<<< HEAD
+# to access this file without looking for it every time
+alias aliases_edit="gedit $bashscripts/bashrc_aliases &"
+alias aliases_list="cat $bashscripts/bashrc_aliases"
+
 # load private info
 source $bashscripts/bashrc.private
-=======
-# system
+export audiobooks_folder
+export memory_address
+export git_username
 
-## load private info
-$bashscripts/bashrc.private
->>>>>>> 0c4f5fc96aaf631ca24f40642a938ef7f867031e
+# system
 
 ## solving ibus access problem
 export GTK_IM_MODULE=ibus
@@ -35,10 +37,6 @@ export TODOTXT_DEFAULT_ACTION=ls
 export TODOTXT_SORT_COMMAND='env LC_COLLATE=C sort -k 2,2 -k 1,1n'
 alias t='/home/$USER/opt/todo.txt_cli-2.12.0/todo.sh'
 complete -F _todo t
-
-# to access this file without looking for it every time
-alias aliases_edit="gedit $bashscripts/bashrc_aliases &"
-alias aliases_list="cat $bashscripts/bashrc_aliases"
 
 # apt
 alias ins="sudo apt install"
@@ -101,18 +99,13 @@ alias gist="sh $bashscripts/gist.sh"
 alias gistp="sh $bashscripts/publicgist.sh"
 alias gg="sh $bashscripts/quickgist.sh"
 
-<<<<<<< HEAD
 # solving ibus access problem
 export GTK_IM_MODULE=ibus
 export XMODIFIERS=@im=ibus
 export QT_IM_MODULE=ibus
 
-# library
-=======
+
 # libarary
-audiobooks_folder="/home/$USER/Documents/audiobook/"
->>>>>>> 0c4f5fc96aaf631ca24f40642a938ef7f867031e
-export audiobooks_folder
 alias libby="$bashscripts/overdrive/overdrive.sh download"
 alias libby_list="ls -t /home/$USER/Downloads | grep \.odm\$ > /tmp/libby_list && cat -n /tmp/libby_list"
 libby_get ()
@@ -120,3 +113,16 @@ libby_get ()
     book_name=$(sed -n $1p /tmp/libby_list)
     libby "/home/$USER/Downloads/$book_name"
 }
+
+
+# vpn
+## proton
+alias ppn="protonvpn-cli"
+
+
+# passowrds
+## bitwarden
+alias bw="$HOME/opt/bw"
+alias bwc="$bashscripts/bwc"
+alias bwu='export BW_SESSION="$(bw unlock --raw)"'
+alias bwl='export BW_SESSION='
