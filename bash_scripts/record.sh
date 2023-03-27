@@ -3,11 +3,7 @@
 #requires package sox from the repositories
 
 ## date format ##
-DATE=$(date +"%F")
-TIME=$(date +"%T")
-
+DATETIME=$(date +"%Y%m%d_%H%M%S")
 ## Backup path ##
-BAK=/home/$USER/drafts
-FILE=$BAK/recorded-$DATE-$TIME
-
-rec $FILE.wav
+FILE="/home/$USER/drafts/recorded-$DATETIME.wav"
+rec $FILE
