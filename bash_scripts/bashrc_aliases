@@ -120,9 +120,29 @@ libby_get ()
 alias ppn="protonvpn-cli"
 
 
+# terminal helpers
+## capture the output of a command so it can be retrieved with ret
+cap () { tee /tmp/capture.out; }
+## return the output of the most recent command that was captured by cap
+ret () { cat /tmp/capture.out; }
+
+
 # passowrds
 ## bitwarden
 alias bw="$HOME/opt/bw"
 alias bwc="$bashscripts/bwc"
 alias bwu='export BW_SESSION="$(bw unlock --raw)"'
 alias bwl='export BW_SESSION='
+
+## enc/dec
+enc ()
+{
+    file=$*
+    gpg --output "$file.enc" --symmetric --cipher-algo AES256 "$file"
+}
+
+dec ()
+{
+    file=$*
+    gpg --output "$file.dec" --decrypt "$file"
+}
