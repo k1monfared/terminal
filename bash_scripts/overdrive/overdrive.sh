@@ -284,7 +284,6 @@ download() {
 
   # prepare to download the parts
   baseurl=$(xmllint --xpath 'string(//Protocol[@method="download"]/@baseurl)' "$1")
-  echo $audiobooks_folder
   dir="$audiobooks_folder$Author - $Title"
   >&2 printf 'Creating directory %s\n' "$dir"
   mkdir -p "$dir"
@@ -398,3 +397,5 @@ for ODM in "${MEDIA[@]}"; do
     esac
   done
 done
+# create a list of all audiobooks 
+ls $audiobooks_folder > $audiobooks_folder/../audiobooks

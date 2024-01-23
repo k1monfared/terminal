@@ -1,5 +1,6 @@
 source_folder="/media/$USER/9C33-6BBD/DCIM/100CANON"
 destination_folder="/home/$USER/Pictures/canon_m5"
+mkdir -p -- "$destination_folder"
 echo "copying from '$source_folder' to '$destination_folder'..."
 cp -rv $source_folder/*.* "$destination_folder"
 
