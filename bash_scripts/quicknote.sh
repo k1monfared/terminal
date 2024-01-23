@@ -5,7 +5,7 @@ DATE=$(date +"%F")
 TIME=$(date +"%T")
  
 ## Backup path ##
-BAK="/home/$USER/drafts"
+BAK="$HOME/Documents/drafts"
 FILE=$BAK/note-$DATE-$TIME
 
 input=$*

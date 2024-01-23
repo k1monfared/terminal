@@ -1,0 +1,7 @@
+#!/bin/bash
+
+#wget -qO- ifconfig.me
+#curl ifconfig.me
+#curl icanhazip.co
+PUBLIC_IP=`wget http://ipecho.net/plain -O - -q ; echo`
+echo $PUBLIC_IP

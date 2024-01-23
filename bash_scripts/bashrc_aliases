@@ -1,17 +1,22 @@
 #!/bin/bash
 
-#define bashscripts folder address in the ~/.bashrc and then source this file there. e.g.
-# bashscripts="/home/$USER/bash_scripts"
-# source "$bashscripts/bashrc_aliases"
-# export PATH="$PATH:$bashscripts"
+# inistal setup
 
-# to access this file without looking for it every time
-alias aliases_edit="gedit $bashscripts/bashrc_aliases &"
+## define bashscripts folder address in the ~/.bashrc and then source this file there. e.g.
+### bashscripts="/home/$USER/bash_scripts"
+### source "$bashscripts/bashrc_aliases"
+### export PATH="$PATH:$bashscripts"
+
+## to access this file without looking for it every time
+alias aliases_edit="pulsar $bashscripts/bashrc_aliases &"
 alias aliases_list="cat $bashscripts/bashrc_aliases"
 
-# load private info
+## load private info
+export bashscripts
 source $bashscripts/bashrc.private
 export audiobooks_folder
+export public_notes_folder
+export private_notes_folder
 export memory_address
 export git_username
 
@@ -21,6 +26,7 @@ export git_username
 export GTK_IM_MODULE=ibus
 export XMODIFIERS=@im=ibus
 export QT_IM_MODULE=ibus
+
 ## hibernation
 alias hib='sudo systemctl hibernate'
 
@@ -49,6 +55,16 @@ alias note="sh $bashscripts/note.sh"
 alias n="sh $bashscripts/quicknote.sh"
 alias ln="sh $bashscripts/lastnote.sh"
 alias drafts="sh $bashscripts/searchdrafts.sh"
+pn () # automatically open a public note in the editor
+{
+    file=$1
+    pulsar $HOME/public/notes/$file
+}
+pvn () # automatically open a private note in the editor
+{
+    file=$1
+    pulsar $HOME/Documents/notes/$file
+}
 
 # github
 alias git_switch="sh $bashscripts/git_switch.sh"
