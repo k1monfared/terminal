@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# inistal setup
+# initial setup
 
 ## define bashscripts folder address in the ~/.bashrc and then source this file there. e.g.
 ### bashscripts="/home/$USER/bash_scripts"

@@ -397,5 +397,5 @@ for ODM in "${MEDIA[@]}"; do
     esac
   done
 done
-# create a list of all audiobooks 
-ls $audiobooks_folder > $audiobooks_folder/../audiobooks
+# create a list of all audiobooks
+ls $audiobooks_folder > $public_notes_folder/audiobooks
