@@ -55,15 +55,16 @@ alias note="sh $bashscripts/note.sh"
 alias n="sh $bashscripts/quicknote.sh"
 alias ln="sh $bashscripts/lastnote.sh"
 alias drafts="sh $bashscripts/searchdrafts.sh"
+alias notes="sh $bashscripts/search_notes.sh"
 pn () # automatically open a public note in the editor
 {
     file=$1
-    pulsar $HOME/public/notes/$file
+    pulsar "$public_notes_folder/$file"
 }
 pvn () # automatically open a private note in the editor
 {
     file=$1
-    pulsar $HOME/Documents/notes/$file
+    pulsar "$private_notes_folder/$file"
 }
 
 # github
