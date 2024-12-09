@@ -89,6 +89,8 @@ git_push_all ()
         message="quick commit"
     fi
     git status && git add --all && git commit -m "$message" && git push
+    repo_name=$(basename `git rev-parse --show-toplevel`)
+    echo "Repository link: https://github.com/$(git config --get remote.origin.url | sed 's/.*://;s/.git$//')"
 }
 git_activate ()
 {
