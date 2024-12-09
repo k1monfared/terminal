@@ -3,5 +3,12 @@
 #wget -qO- ifconfig.me
 #curl ifconfig.me
 #curl icanhazip.co
-PUBLIC_IP=`wget http://ipecho.net/plain -O - -q ; echo`
-echo $PUBLIC_IP
+PUBLIC_IPv4=`wget -qO- -4 ifconfig.co`
+PUBLIC_IPv6=`wget -qO- -6 ifconfig.co`
+CITY=`curl -s ipinfo.io/$PUBLIC_IPv4 | grep city | awk -F: '{print $2}' | tr -d ' ",\n'`
+COUNTRY=`curl -s ipinfo.io/$PUBLIC_IPv4 | grep country | awk -F: '{print $2}' | tr -d ' ",\n'`
+REGION=`curl -s ipinfo.io/$PUBLIC_IPv4 | grep region | awk -F: '{print $2}' | tr -d ' ",\n'`
+LOCATION="$CITY, $REGION, $COUNTRY"
+echo "IPv4: $PUBLIC_IPv4"
+echo "IPv6: $PUBLIC_IPv6"
+echo "Location: $LOCATION"
