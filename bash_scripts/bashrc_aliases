@@ -56,8 +56,7 @@ alias remove="sudo apt remove"
 alias note="sh $bashscripts/note.sh"
 alias n="sh $bashscripts/quicknote.sh"
 alias ln="sh $bashscripts/lastnote.sh"
-alias drafts="sh $bashscripts/searchdrafts.sh"
-alias notes="sh $bashscripts/search_notes.sh"
+alias notes="search_notes"
 pn () # automatically open a public note in the editor
 {
     file=$1
@@ -168,7 +167,8 @@ dec ()
     gpg --output "$file.dec" --decrypt "$file"
 }
 
-## search
+# search
+## search text within files and print relevant lines
 print_lines_with_context() {
     local file="$1"
     local line_number="$2"
@@ -221,7 +221,6 @@ print_lines_with_context() {
 
 search_text() {
     local search_dir="${1:-.}"
-
     # Find text, log, latex files, and files without extension, prepend each line with its filename and line number
     local selected_line
     selected_line=$(find "$search_dir" -type f \( -iname '*.txt' -o -iname '*.md' -o -iname '*.rst' -o -iname '*.asc' -o -iname '*.tex' -o -iname '*.csv' -o -iname '*.log' -o ! -name '*.*' \) -exec awk '{print FILENAME ":" FNR ":" $0}' {} + | \
@@ -263,4 +262,25 @@ search_notes() {
     search_text "$NOTES_FOLDER"
 }
 
-alias fz="sh $bashscripts/fz.sh"
+## fzf search files
+alias fz="find . -type f 2>/dev/null | fzf --preview 'head -n 100 {}'"
+alias fza="sudo find / -type f 2>/dev/null | fzf --preview 'head -n 100 {}'"
+
+## memory
+alias mem="sh $bashscripts/memory.sh"
+remem() {
+    local search_dir="$memory_address"
+    local selected_line
+    selected_line=$(find "$search_dir" -type f -exec awk '{print FILENAME ":" FNR ":" $0}' {} + | \
+    fzf --ansi --delimiter ':' \
+        --color fg:242,bg:16,hl:108,fg+:15,bg+:236,hl+:168 \
+        --color info:148,prompt:110,spinner:148,pointer:168,marker:168 \
+        --preview 'batcat --style=numbers --color=always --highlight-line {2} {1}' \
+        --preview-window=right:40%:wrap \
+        --with-nth=2,3..)
+
+    if [[ -n "$selected_line" ]]; then
+        IFS=':' read -r filename lineno _ <<< "$selected_line"
+        print_lines_with_context "$filename" "$lineno"
+    fi
+}
