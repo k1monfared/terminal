@@ -29,6 +29,7 @@ export QT_IM_MODULE=ibus
 
 ## hibernation
 alias hib='sudo systemctl hibernate'
+alias bat="batcat"
 
 ## shortcuts
 alias search="sh $bashscripts/duckduckgo.sh"
@@ -163,3 +164,117 @@ dec ()
     file=$*
     gpg --output "$file.dec" --decrypt "$file"
 }
+
+## search
+print_lines_with_context() {
+    local file="$1"
+    local line_number="$2"
+    local lines_before="${3:-3}"
+    local lines_after="${4:-5}"
+    local truncate="${5:-true}"
+    local start_line=$((line_number - lines_before))
+    local end_line=$((line_number + lines_after))
+
+    # Ensure start_line is not less than 1
+    if [ "$start_line" -lt 1 ]; then
+        start_line=1
+    fi
+
+    # Get the absolute path of the file
+    local abs_filepath
+    abs_filepath=$(realpath "$file")
+
+    # Get terminal width and calculate max line width as 80% of terminal width
+    local terminal_width
+    terminal_width=$(tput cols)
+    local max_line_width=$((terminal_width * 80 / 100))
+
+    # Print lines with line numbers and highlight the selected line
+    awk -v start="$start_line" -v end="$end_line" -v highlight="$line_number" -v filepath="$abs_filepath" -v max_width="$max_line_width" -v truncate="$truncate" '
+    BEGIN {
+        # Print the absolute file path in magenta
+        printf "\033[32m%s\033[0m\n", filepath
+    }
+    NR >= start && NR <= end {
+        # Truncate line to max_width if necessary, but only if it is not the selected line
+        if (NR == highlight) {
+            line = $0
+        } else {
+            if (truncate == "true") {
+                line = (length($0) > max_width) ? substr($0, 1, max_width) "..." : $0
+            } else {
+                line = $0
+            }
+        }
+        if (NR == highlight) {
+            # Highlight the selected line in blue and line number in cyan
+            printf "\033[32m%4d:\033[34m %s\033[0m\n", NR, line
+        } else {
+            # Print line numbers in red
+            printf "\033[31m%4d:\033[0m %s\n", NR, line
+        }
+    }' "$file"
+}
+
+search_text() {
+    SEARCH_DIR="${1:-.}"
+
+    # Use find to locate all text files and cat to send their contents to fzf
+    # We prepend each line with its filename and line number
+    selected_line=$(find "$SEARCH_DIR" -type f -name '*' -exec awk '{print FILENAME ":" FNR ":" $0}' {} + | \
+    fzf --ansi --delimiter ':' \
+        --color fg:242,bg:16,hl:108,fg+:15,bg+:236,hl+:168 \
+        --color info:148,prompt:110,spinner:148,pointer:168,marker:168 \
+        --preview 'batcat --style=numbers --color=always --highlight-line {2} {1}' \
+        --preview-window=right:40%:wrap \
+        --with-nth=1,2,3..)
+
+    if [[ -n "$selected_line" ]]; then
+        IFS=':' read -r filename lineno content <<< "$selected_line"
+        print_lines_with_context "$filename" "$lineno"
+    fi
+
+}
+
+search_notes() {
+    OPTIONS=("public" "private" "memory" "public_private" "public_memory" "private_memory" "all")
+    echo "Select an option:"
+    select opt in "${OPTIONS[@]}"; do
+        case "$opt" in
+            public)
+                NOTES_FOLDER="$public_notes_folder"
+                break
+                ;;
+            private)
+                NOTES_FOLDER="$private_notes_folder"
+                break
+                ;;
+            memory)
+                NOTES_FOLDER="$memory_address"
+                break
+                ;;
+            public_private)
+                NOTES_FOLDER="$public_notes_folder $private_notes_folder"
+                break
+                ;;
+            public_memory)
+                NOTES_FOLDER="$public_notes_folder $memory_address"
+                break
+                ;;
+            private_memory)
+                NOTES_FOLDER="$private_notes_folder $memory_address"
+                break
+                ;;
+            all)
+                NOTES_FOLDER="$public_notes_folder $private_notes_folder $memory_address"
+                break
+                ;;
+            *)
+                echo "Invalid option. Please choose a valid option."
+                ;;
+        esac
+    done
+    search_text "$NOTES_FOLDER"
+}
+
+alias fz="sh $bashscripts/fz.sh"

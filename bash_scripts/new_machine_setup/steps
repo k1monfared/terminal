@@ -1,0 +1,68 @@
+[] mate desktop
+    [x] ins ubuntu-mate-desktop
+        [x] lightdm
+    [] reboot
+    [] select as default on login
+[] settings
+    [x] sounds
+        [x] alert sounds -> None
+    [] accounts
+    [x] mouse and touchpad scrolling
+    [] power options
+        [] screen saver
+        [] lid settings
+        [] battery
+    [x] languages and keyboards
+        [x] short keys, doesn't allow alt + shift
+    [x] keyboard shortkeys
+        [x] desktop management
+[] apps
+    [x] firefox
+        [x] login to firefox to sync extensions and tabs
+    [x] pulsar
+        [x] install: https://pulsar-edit.dev/download.html
+        [] figure out how to backup and restore pulsar settings
+        [] settings
+            [x] tabs to 4 spaces
+            [x] color
+            [] repo folders
+            [] packages
+    [x] login to github
+        [] gh cli
+        [] clone all repos
+        [] setup auth
+        [] setup multi-account
+    [x] telegram
+    [] signal
+        [x] install
+        [x] sync
+        [] past messages
+    [x] gimp
+    [x] vlc
+    [x] guake
+        [x] settings
+            [x] height
+            [x] width
+            [x] infinite scroll
+            [x] shortkeys already all good
+    [x] libre-office
+    [x] chromium
+    [x] slack
+    [x] discord
+    [x] conda
+        [] figure out how to back up envs or their specs so that can be reproduced elsewhere
+    [x] cursor
+    [x] freecad
+    [x] bitwarden
+    [x] zoom
+    [x] okular
+    [x] emacs
+    [x] darktable
+    [x] freetube: https://freetubeapp.io/#download
+        [] figure out how to keep the subscriptions
+    [x] xournal
+    [x] spotify
+    [x] xclip
+    [x] fzf
+        [] figure out why it isn't already moved
+[]
