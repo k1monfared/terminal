@@ -19,6 +19,7 @@ export public_notes_folder
 export private_notes_folder
 export memory_address
 export git_username
+export drafts_folder
 
 # system
 
@@ -85,7 +86,7 @@ git_push_all ()
     message=$*
     if [[ $(echo $message) ]]; then
         message=$message
-    else
+    elsesour
         message="quick commit"
     fi
     git status && git add --all && git commit -m "$message" && git push
@@ -219,11 +220,11 @@ print_lines_with_context() {
 }
 
 search_text() {
-    SEARCH_DIR="${1:-.}"
+    local search_dir="${1:-.}"
 
-    # Use find to locate all text files and cat to send their contents to fzf
-    # We prepend each line with its filename and line number
-    selected_line=$(find "$SEARCH_DIR" -type f -name '*' -exec awk '{print FILENAME ":" FNR ":" $0}' {} + | \
+    # Find text, log, latex files, and files without extension, prepend each line with its filename and line number
+    local selected_line
+    selected_line=$(find "$search_dir" -type f \( -iname '*.txt' -o -iname '*.md' -o -iname '*.rst' -o -iname '*.asc' -o -iname '*.tex' -o -iname '*.csv' -o -iname '*.log' -o ! -name '*.*' \) -exec awk '{print FILENAME ":" FNR ":" $0}' {} + | \
     fzf --ansi --delimiter ':' \
         --color fg:242,bg:16,hl:108,fg+:15,bg+:236,hl+:168 \
         --color info:148,prompt:110,spinner:148,pointer:168,marker:168 \
@@ -232,14 +233,13 @@ search_text() {
         --with-nth=1,2,3..)
 
     if [[ -n "$selected_line" ]]; then
-        IFS=':' read -r filename lineno content <<< "$selected_line"
+        IFS=':' read -r filename lineno _ <<< "$selected_line"
         print_lines_with_context "$filename" "$lineno"
     fi
-
 }
 
 search_notes() {
-    OPTIONS=("public" "private" "memory" "public_private" "public_memory" "private_memory" "all")
+    OPTIONS=("public" "private" "drafts")
     echo "Select an option:"
     select opt in "${OPTIONS[@]}"; do
         case "$opt" in
@@ -251,24 +251,8 @@ search_notes() {
                 NOTES_FOLDER="$private_notes_folder"
                 break
                 ;;
-            memory)
-                NOTES_FOLDER="$memory_address"
-                break
-                ;;
-            public_private)
-                NOTES_FOLDER="$public_notes_folder $private_notes_folder"
-                break
-                ;;
-            public_memory)
-                NOTES_FOLDER="$public_notes_folder $memory_address"
-                break
-                ;;
-            private_memory)
-                NOTES_FOLDER="$private_notes_folder $memory_address"
-                break
-                ;;
-            all)
-                NOTES_FOLDER="$public_notes_folder $private_notes_folder $memory_address"
+            drafts)
+                NOTES_FOLDER="$drafts_folder"
                 break
                 ;;
             *)
