@@ -85,7 +85,7 @@ git_push_all ()
     message=$*
     if [[ $(echo $message) ]]; then
         message=$message
-    elsesour
+    else
         message="quick commit"
     fi
     git status && git add --all && git commit -m "$message" && git push
