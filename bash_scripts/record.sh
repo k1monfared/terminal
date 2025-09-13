@@ -5,5 +5,5 @@
 ## date format ##
 DATETIME=$(date +"%Y%m%d_%H%M%S")
 ## Backup path ##
-FILE="/home/$USER/Documents/drafts/recorded-$DATETIME.wav"
+FILE="$HOME/recording/rec-$DATETIME.wav"
 rec $FILE

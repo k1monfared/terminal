@@ -20,6 +20,7 @@ export private_notes_folder
 export memory_address
 export git_username
 export drafts_folder
+export blog_folder
 
 # system
 
@@ -57,6 +58,7 @@ alias note="sh $bashscripts/note.sh"
 alias n="sh $bashscripts/quicknote.sh"
 alias ln="sh $bashscripts/lastnote.sh"
 alias notes="search_notes"
+alias blog="sh $bashscripts/blog.sh"
 pn () # automatically open a public note in the editor
 {
     file=$1
@@ -284,3 +286,12 @@ remem() {
         print_lines_with_context "$filename" "$lineno"
     fi
 }
+
+# Utilities
+## desktop
+notify() {
+    strace -e open notify-send "$1" "$2"
+}
+
+alias plotbills='bash $HOME/Documents/money/bills/plot_bills.sh'
+alias vnc="~/opt/vnc-manager.sh"
