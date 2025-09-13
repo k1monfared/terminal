@@ -1,12 +1,12 @@
 #!/bin/sh
 
 ## date format ##
-DATETIME=$(date +"%Y%m%d_%H%M%S")
+DATETIME=$(date +"%Y%m%d_")
 ## Save path ##
-mkdir -p -- "$drafts_folder"
+mkdir -p -- "$blog_folder"
 filename="note_$DATETIME"
-FILE="$drafts_folder/$filename"
+FILE="$blog_folder/$filename"
 code $FILE 2>/dev/null &
 echo "file is saved at the following address:"
 echo $FILE
-echo $FILE >> $drafts_folder/list
+echo $FILE >> $blog_folder/list
