@@ -8,19 +8,12 @@
 ### export PATH="$PATH:$bashscripts"
 
 ## to access this file without looking for it every time
-alias aliases_edit="pulsar $bashscripts/bashrc_aliases &"
+alias aliases_edit="code $bashscripts/bashrc_aliases &"
 alias aliases_list="cat $bashscripts/bashrc_aliases"
 
 ## load private info
 export bashscripts
 source $bashscripts/bashrc.private
-export audiobooks_folder
-export public_notes_folder
-export private_notes_folder
-export memory_address
-export git_username
-export drafts_folder
-export blog_folder
 
 # system
 
@@ -62,12 +55,12 @@ alias blog="sh $bashscripts/blog.sh"
 pn () # automatically open a public note in the editor
 {
     file=$1
-    pulsar "$public_notes_folder/$file"
+    code "$public_notes_folder/$file"
 }
 pvn () # automatically open a private note in the editor
 {
     file=$1
-    pulsar "$private_notes_folder/$file"
+    code "$private_notes_folder/$file"
 }
 
 # github
@@ -295,3 +288,107 @@ notify() {
 
 alias plotbills='bash $HOME/Documents/money/bills/plot_bills.sh'
 alias vnc="~/opt/vnc-manager.sh"
+
+## project creation
+new_project() {
+    # Ask for project name
+    echo -n "Enter project name: "
+    read project_name
+
+    # Replace spaces with underscores and keep only alphanumeric characters and underscores
+    clean_name=$(echo "$project_name" | sed 's/ /_/g' | sed 's/[^a-zA-Z0-9_]//g')
+
+    # Check if directory already exists
+    project_path="$HOME/public/$clean_name"
+    while [[ -d "$project_path" ]]; do
+        echo "Directory already exists: $project_path"
+        echo "Contents:"
+        ls -la "$project_path"
+        echo
+        echo -n "Enter a new project name [$clean_name]: "
+        read new_name
+        if [[ -n "$new_name" ]]; then
+            clean_name=$(echo "$new_name" | sed 's/ /_/g' | sed 's/[^a-zA-Z0-9_]//g')
+        fi
+        project_path="$HOME/public/$clean_name"
+    done
+
+    # Create project directory
+    mkdir -p "$project_path"
+
+    # Ask if Claude Code template should be used
+    echo -n "Use Claude Code template? (y/n): "
+    read use_claude
+
+    if [[ "$use_claude" == "y" || "$use_claude" == "Y" ]]; then
+        template_path="$HOME/public/claude_code_project_template"
+        if [[ -d "$template_path" ]]; then
+            cp -r "$template_path"/. "$project_path/"
+            echo "Claude Code template copied to $project_path"
+        else
+            echo "Warning: Claude Code template not found at $template_path"
+        fi
+    fi
+
+    # Change to project directory and initialize git
+    cd "$project_path"
+    git init
+
+    # Ask if repository should be public
+    echo -n "Make repository public? (y/n, default is private): "
+    read make_public
+
+    # Add all files and make initial commit
+    git add --all
+    git commit -m "Initial commit"
+
+    # Create GitHub repository and push
+    if [[ "$make_public" == "y" || "$make_public" == "Y" ]]; then
+        gh repo create "$clean_name" --public --source . --remote origin --push
+    else
+        gh repo create "$clean_name" --private --source . --remote origin --push
+    fi
+
+    echo "GitHub repository created and connected"
+
+    # Open readme.log in vscode
+    readme_file="$project_path/readme.log"
+    if [[ ! -f "$readme_file" ]]; then
+        touch "$readme_file"
+    fi
+    code "$readme_file"
+
+    echo "Project '$clean_name' created at $project_path"
+}
+
+# AI tools
+# Function to use Poe subscription
+use-poe() {
+    export ANTHROPIC_AUTH_TOKEN="$POE_API_KEY"
+    export ANTHROPIC_BASE_URL="https://api.poe.com"
+    export ANTHROPIC_API_KEY=""
+    echo "Switched to Poe subscription"
+}
+
+# Function to use Claude subscription
+use-claude-api() {
+    unset ANTHROPIC_AUTH_TOKEN
+    unset ANTHROPIC_BASE_URL
+    export ANTHROPIC_API_KEY="$CLAUDE_API_KEY"
+    echo "Switched to Claude API"
+}
+
+use-claude() {
+    unset ANTHROPIC_API_KEY
+    unset ANTHROPIC_AUTH_TOKEN
+    unset ANTHROPIC_BASE_URL
+    echo "Switched to default Claude Code"
+}
+
+# Function to check current setup
+check-claude-config() {
+    echo "Current configuration:"
+    echo "ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:+[SET]}"
+    echo "ANTHROPIC_AUTH_TOKEN: ${ANTHROPIC_AUTH_TOKEN:+[SET]}"
+    echo "ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-[NOT SET]}"
+}
