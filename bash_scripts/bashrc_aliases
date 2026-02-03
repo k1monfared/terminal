@@ -7,9 +7,12 @@
 ### source "$bashscripts/bashrc_aliases"
 ### export PATH="$PATH:$bashscripts"
 
+export EDITOR="code"
+
 ## to access this file without looking for it every time
-alias aliases_edit="code $bashscripts/bashrc_aliases &"
+alias aliases_edit="$EDITOR $bashscripts/bashrc_aliases &"
 alias aliases_list="cat $bashscripts/bashrc_aliases"
+
 
 ## load private info
 export bashscripts
@@ -55,12 +58,12 @@ alias blog="sh $bashscripts/blog.sh"
 pn () # automatically open a public note in the editor
 {
     file=$1
-    code "$public_notes_folder/$file"
+    $EDITOR "$public_notes_folder/$file"
 }
 pvn () # automatically open a private note in the editor
 {
     file=$1
-    code "$private_notes_folder/$file"
+    $EDITOR "$private_notes_folder/$file"
 }
 
 # github
@@ -356,7 +359,7 @@ new_project() {
     if [[ ! -f "$readme_file" ]]; then
         touch "$readme_file"
     fi
-    code "$readme_file"
+    $EDITOR "$readme_file"
 
     echo "Project '$clean_name' created at $project_path"
 }
