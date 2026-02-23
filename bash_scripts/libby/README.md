@@ -46,3 +46,22 @@ The security implication is that this script *could* make HTTP requests to arbit
 When any `@grant` is used, Tampermonkey sandboxes the script and page globals like `requirejs` and `BIF` are no longer directly accessible. `unsafeWindow` is a reference to the real page `window`, used here only to read `requirejs`, `BIF`, `sessionStorage`, and `document.title`. It is not used to modify page behaviour beyond the temporary `seek()` patch during collection.
 
 **Mitigation:** The script is short and self-contained — read it before installing. Never install userscripts from untrusted sources, especially ones with `GM_xmlhttpRequest` + `@connect *`.
+
+## Differences from OverdriveUnspooler
+
+This script is adapted from the [OverdriveUnspooler](https://github.com/koalyptus/OverdriveUnspooler) concept but differs in several ways discovered through debugging on Firefox:
+
+**URL capture is injected into the page context via a `<script>` tag.**
+OverdriveUnspooler patches `AudioProxyElem.prototype.seek` directly from the userscript. On Firefox, Tampermonkey's `@grant` sandbox uses Xray wrappers, which means prototype patches made through `unsafeWindow` don't affect the page's actual objects — the hook silently does nothing. This script injects the entire capture logic as a `<script>` tag so it runs with real page privileges.
+
+**URLs returned by `seek()` are relative, not absolute.**
+The `seek()` method receives paths like `%7BID%7DFmt425-Part01.mp3?cmpt=...` (a URL-encoded relative path), not full `https://` URLs. The script prepends `window.location.origin` to make them absolute before storing them.
+
+**Two capture hooks run in parallel.**
+In addition to the `AudioProxyElem.seek` hook, the script also patches `HTMLMediaElement.prototype.src`. The `src` hook catches any URL set directly on an audio element, which covers cases where `seek()` is not called or is called without a URL argument. In practice, `seek()` proved to be the reliable one, but both run together.
+
+**Downloads use `GM_xmlhttpRequest` + `unsafeWindow.Blob`.**
+The player's audio URLs are on the same origin but redirect (302) to `audioclips.cdn.overdrive.com`, which has no CORS headers. Regular `fetch()` from the page fails at the CDN step. `GM_xmlhttpRequest` bypasses CORS entirely. The response is wrapped in `unsafeWindow.Blob` (rather than a sandbox `Blob`) so the resulting blob URL is in the page's security context, which Firefox requires for anchor-click downloads to work.
+
+**Downloads run in parallel.**
+CDN URLs embedded in the redirect chain expire approximately 2 minutes after generation. Sequential downloads with delays would time out on longer books, so all parts are downloaded concurrently with `Promise.allSettled`.
