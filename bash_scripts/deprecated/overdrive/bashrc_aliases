@@ -1,0 +1,8 @@
+# libarary
+alias libby="$bashscripts/overdrive/overdrive.sh download"
+alias libby_list="ls -t /home/$USER/Downloads | grep \.odm\$ > /tmp/libby_list && cat -n /tmp/libby_list"
+libby_get ()
+{
+    book_name=$(sed -n $1p /tmp/libby_list)
+    libby "/home/$USER/Downloads/$book_name"
+}
