@@ -27,6 +27,8 @@ export QT_IM_MODULE=ibus
 
 ## hibernation
 alias hib='sudo systemctl hibernate'
+
+## bat
 alias bat="batcat"
 
 ## shortcuts
@@ -48,6 +50,7 @@ alias ins="sudo apt install"
 alias upd="sudo apt update"
 alias upg="sudo apt upgrade -y"
 alias remove="sudo apt remove"
+alias upg-secure="sudo unattended-upgrade"
 
 # note
 alias note="sh $bashscripts/note.sh"
@@ -121,16 +124,6 @@ alias gg="sh $bashscripts/quickgist.sh"
 export GTK_IM_MODULE=ibus
 export XMODIFIERS=@im=ibus
 export QT_IM_MODULE=ibus
-
-
-# libarary
-alias libby="$bashscripts/overdrive/overdrive.sh download"
-alias libby_list="ls -t /home/$USER/Downloads | grep \.odm\$ > /tmp/libby_list && cat -n /tmp/libby_list"
-libby_get ()
-{
-    book_name=$(sed -n $1p /tmp/libby_list)
-    libby "/home/$USER/Downloads/$book_name"
-}
 
 
 # vpn
@@ -362,6 +355,33 @@ new_project() {
     $EDITOR "$readme_file"
 
     echo "Project '$clean_name' created at $project_path"
+}
+
+# library
+libby_get ()
+{
+    local manifest="$HOME/Downloads/libby_manifest.sh"
+    if [[ ! -f "$manifest" ]]; then
+        echo "No manifest found. Open a book in the Libby web player and click Download."
+        return 1
+    fi
+    source "$manifest"
+    read -rp "Author [press enter to leave blank]: " input_author
+    [[ -n "$input_author" ]] && author="$input_author"
+    local dir="$audiobooks_folder${author:+$author - }$title"
+    mkdir -p "$dir"
+    for f in "${files[@]}"; do
+        local src="$HOME/Downloads/$f"
+        if [[ -f "$src" ]]; then
+            mv "$src" "$dir/"
+            echo "Moved: $f"
+        else
+            echo "Missing: $f (skipped)"
+        fi
+    done
+    mv "$manifest" "$dir/"
+    ls "$audiobooks_folder" > "$public_notes_folder/audiobooks"
+    echo "Done: $dir"
 }
 
 # AI tools
