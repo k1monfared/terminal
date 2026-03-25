@@ -1,43 +1,57 @@
+# Terminal
 
-# bash_scripts
-A collection of projects and scripts around bash and shell
+A collection of bash scripts, shell utilities, and LaTeX tools for everyday use on Linux.
 
+## Overview
 
-## bashrc_alisases 
-Little useful commmands 
+This repository contains personal shell scripts and configurations organized into the following areas:
 
+### [bash_scripts/](bash_scripts/)
 
-### system
+The main collection of scripts and shell aliases. Source `bashrc_aliases` from your `~/.bashrc` to get access to all shortcuts. See the [bash_scripts README](bash_scripts/README.md) for full details.
 
-#### load private info
+**Highlights:**
 
-#### solving ibus access problem
+| Category | Scripts | Description |
+|----------|---------|-------------|
+| Shell config | `bashrc_aliases`, `bashrc.private` | Aliases, functions, and environment variables |
+| Notes | `note.sh`, `quicknote.sh`, `lastnote.sh`, `blog.sh` | Quick note-taking and retrieval from the terminal |
+| Memory | `memory.sh`, `remem` | Save clipboard contents organized by date, search later with fzf |
+| GitHub | `git_switch.sh`, `gist.sh`, `publicgist.sh`, `quickgist.sh` | Git account switching and quick gist creation |
+| Photos | `organize_photos_monthly*.sh/.py`, `get_image_creation_*`, `copy_canon.sh` | Organize photos into YYYY-MM folders by EXIF date |
+| Phone | `emptyphone.sh`, `phone_places_*.lst` | Back up and clean files from an Android phone over MTP |
+| Search | `duckduckgo.sh`, `contacts.sh` | Open DuckDuckGo or Google Contacts searches in Firefox |
+| System | `brightness.sh`, `rotate.sh`, `record.sh`, `copy_file_to_clipboard.sh` | Screen brightness, display rotation, voice recording, clipboard |
+| Passwords | `bwc` | Bitwarden CLI helper with fzf selection |
+| Networking | `get_public_ip` | Show public IPv4/IPv6 and geolocation |
+| New machine | `new_machine_setup/steps` | Checklist for setting up a fresh Linux install |
 
+### Subprojects
 
-#### shortcuts
-Can't remember everything
+| Folder | Description |
+|--------|-------------|
+| [bash_scripts/terminal_youtube_player/](bash_scripts/terminal_youtube_player/) | Download and play YouTube videos from the terminal using mplayer |
+| [bash_scripts/rip_audio_cd/](bash_scripts/rip_audio_cd/) | Rip audio CDs to MP3 using cdparanoia and lame |
+| [bash_scripts/libby/](bash_scripts/libby/) | Browser userscript to download Libby/OverDrive audiobooks as MP3s |
+| [bash_scripts/deprecated/overdrive/](bash_scripts/deprecated/overdrive/) | (Deprecated) ODM-based OverDrive audiobook downloader |
 
-### todo.txt
-Dealing with todo.txt
+### [latex/](latex/)
 
-### apt
-Update repos, upgrade packages, or remove them.
+| Folder | Description |
+|--------|-------------|
+| [latex/animate_pdf/](latex/animate_pdf/) | Embed GIF animations in PDF files using LaTeX and the `animate` package |
 
-### note
-Create a note quickly and keep a list of them with the ability to search full text and to retrive the last note.
+## Setup
 
+```bash
+# In your ~/.bashrc, add:
+bashscripts="/home/$USER/bash_scripts"   # or wherever you cloned this
+source "$bashscripts/bashrc_aliases"
+export PATH="$PATH:$bashscripts"
+```
 
-### github
-Instead of typing 3 commands all the time...
+The `bashrc.private` file (git-ignored) holds personal paths and API keys. Create your own with exports like `audiobooks_folder`, `memory_address`, `drafts_folder`, etc.
 
-#### github gist
-Create a gist, commit, and push it quickly.
+## License
 
-### libarary
-`libby <odm_file_path>` will download the audiobook to current working directory.
-
-`libby_list` lists all the odm files in `~/Downloads/` and gives a number to them so that you can use it to download easily
-
-`libby_get <n>` will download the book numbered n in the list above. The `overdrive.sh` I have here is modified in a way that it also moves the `.odm` and `.metadata` and `.licence` files into hte book folder in case it is needed in the future. Specifically the .medata file is useful for building an index.
-
-If you define the `audiobooks_folder` here then the books will be downloaded to this folder, otherwise it will be the current working directory where it is called
+GPL v3 -- see [LICENSE](bash_scripts/LICENSE).
