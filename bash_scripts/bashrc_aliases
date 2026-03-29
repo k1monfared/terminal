@@ -69,6 +69,9 @@ pvn () # automatically open a private note in the editor
     $EDITOR "$private_notes_folder/$file"
 }
 
+# movie
+alias movie="/home/$USER/public/notes/movie"
+
 # github
 alias git_switch="sh $bashscripts/git_switch.sh"
 alias git_who="cat /home/$USER/opt/git_config/active_git_account"
@@ -113,6 +116,17 @@ git_clone ()
     git clone git@${account}:$sublink &&
     cd $repo &&
     git_switch $account
+}
+
+gh_switch ()
+{
+    if [ -z "$1" ]; then
+        echo "Usage: gh_switch <username>"
+        echo "Available accounts:"
+        gh auth status 2>&1 | grep "account" | sed 's/.*account /  /'
+        return 1
+    fi
+    gh auth switch --user "$1"
 }
 
 ## github gist
