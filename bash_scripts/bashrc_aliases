@@ -422,6 +422,9 @@ use-claude() {
     echo "Switched to default Claude Code"
 }
 
+# Photoblog
+alias photoblog="python ~/public/photoblog/scripts/editor.py"
+
 # Function to check current setup
 check-claude-config() {
     echo "Current configuration:"
