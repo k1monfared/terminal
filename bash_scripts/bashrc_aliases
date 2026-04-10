@@ -18,6 +18,9 @@ alias aliases_list="cat $bashscripts/bashrc_aliases"
 export bashscripts
 source $bashscripts/bashrc.private
 
+## load drive utilities
+source $bashscripts/drives.sh
+
 # system
 
 ## solving ibus access problem
@@ -38,6 +41,7 @@ alias mic="sh $bashscripts/record.sh"
 alias organize="sh $bashscripts/organize_photos_monthly_this_folder.sh"
 alias jnb="jupyter notebook"
 alias cb="sh $bashscripts/copy_file_to_clipboard.sh"
+alias ip="curl -s ipinfo.io"
 
 # todo.txt
 export TODOTXT_DEFAULT_ACTION=ls
@@ -93,8 +97,8 @@ git_push_all ()
         message="quick commit"
     fi
     git status && git add --all && git commit -m "$message" && git push
-    repo_name=$(basename `git rev-parse --show-toplevel`)
-    echo "Repository link: https://github.com/$(git config --get remote.origin.url | sed 's/.*://;s/.git$//')"
+    remote_url=$(git config --get remote.origin.url)
+    echo "Repository link: https://$(echo $remote_url | sed 's/.*@//;s/:/\//;s/.git$//')"
 }
 git_activate ()
 {
@@ -431,4 +435,19 @@ check-claude-config() {
     echo "ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:+[SET]}"
     echo "ANTHROPIC_AUTH_TOKEN: ${ANTHROPIC_AUTH_TOKEN:+[SET]}"
     echo "ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-[NOT SET]}"
+}
+
+# News Reader
+alias iran_news="cd /home/k1/public/news_reader && python run_pipeline.py"
+
+# Phone Backup
+backup_phone ()
+{
+    cd /home/$USER/public/phone_backup && python phone_backup.py "$@"
+}
+
+# Laptop Backup
+backup_laptop ()
+{
+    cd /home/$USER/public/laptop_backup && python laptop_backup.py "$@"
 }
