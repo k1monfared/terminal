@@ -438,7 +438,7 @@ check-claude-config() {
 }
 
 # News Reader
-alias iran_news="cd /home/k1/public/news_reader && python run_pipeline.py"
+alias iran_news="cd $HOME/public/news_reader && python run_pipeline.py"
 
 # Phone Backup
 backup_phone ()
@@ -451,3 +451,10 @@ backup_laptop ()
 {
     cd /home/$USER/public/laptop_backup && python laptop_backup.py "$@"
 }
+
+# Cheatsheet
+alias cheat="source $bashscripts/cheatsheet.sh"
+alias cs="source $bashscripts/cheatsheet.sh"
+
+# Home server (Nextcloud stack: hs-start / hs-pause / hs-end / hs-open / hs-help)
+source "$HOME/public/home_server/bin/aliases.sh"
