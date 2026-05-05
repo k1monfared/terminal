@@ -6,7 +6,7 @@ DATETIME=$(date +"%Y%m%d_%H%M%S")
 mkdir -p -- "$drafts_folder"
 filename="note_$DATETIME"
 
-SUBFOLDER="$1"
+SUBFOLDER="$*"
 SAVE_DIR="$drafts_folder"
 FIRST_LINE=""
 
