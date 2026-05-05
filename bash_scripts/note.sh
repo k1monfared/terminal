@@ -14,49 +14,57 @@ if [ -n "$SUBFOLDER" ]; then
     if [ -d "$drafts_folder/$SUBFOLDER" ]; then
         SAVE_DIR="$drafts_folder/$SUBFOLDER"
     else
-        echo "Folder '$SUBFOLDER' not found in $drafts_folder."
-        echo "Choose an option:"
-        echo "  1) Create '$SUBFOLDER' (as typed)"
+        create_option="Create '$SUBFOLDER' (as typed)"
+        new_name_option="Type a new name..."
 
-        existing=""
-        i=2
+        options="$create_option"
         for d in "$drafts_folder"/*/; do
             [ -d "$d" ] || continue
-            name=$(basename "$d")
-            existing="$existing$name
-"
-            echo "  $i) $name"
-            i=$((i + 1))
+            options="$options
+$(basename "$d")"
         done
+        options="$options
+$new_name_option"
 
-        new_name_idx=$i
-        echo "  $i) Type a new name"
-
-        printf "Selection [1]: "
-        read -r choice
-        choice=${choice:-1}
-
-        if [ "$choice" = "1" ]; then
-            mkdir -p -- "$drafts_folder/$SUBFOLDER"
-            SAVE_DIR="$drafts_folder/$SUBFOLDER"
-        elif [ "$choice" = "$new_name_idx" ]; then
-            printf "New folder name: "
-            read -r new_name
-            if [ -n "$new_name" ]; then
-                mkdir -p -- "$drafts_folder/$new_name"
-                SAVE_DIR="$drafts_folder/$new_name"
-            else
-                FIRST_LINE="$SUBFOLDER"
-            fi
+        if command -v fzf >/dev/null 2>&1; then
+            selection=$(printf '%s\n' "$options" | fzf \
+                --prompt="Folder for note > " \
+                --header="'$SUBFOLDER' not found. Use ↑/↓ to pick, Enter to confirm." \
+                --height=40% \
+                --reverse \
+                --no-info \
+                --no-mouse)
         else
-            selected=$(printf '%s' "$existing" | sed -n "$((choice - 1))p")
-            if [ -n "$selected" ] && [ -d "$drafts_folder/$selected" ]; then
-                SAVE_DIR="$drafts_folder/$selected"
-            else
-                echo "Invalid selection. Saving in default folder."
-                FIRST_LINE="$SUBFOLDER"
-            fi
+            echo "fzf not installed; saving in default folder."
+            selection=""
         fi
+
+        case "$selection" in
+            "$create_option")
+                mkdir -p -- "$drafts_folder/$SUBFOLDER"
+                SAVE_DIR="$drafts_folder/$SUBFOLDER"
+                ;;
+            "$new_name_option")
+                printf "New folder name: "
+                read -r new_name
+                if [ -n "$new_name" ]; then
+                    mkdir -p -- "$drafts_folder/$new_name"
+                    SAVE_DIR="$drafts_folder/$new_name"
+                else
+                    FIRST_LINE="$SUBFOLDER"
+                fi
+                ;;
+            "")
+                FIRST_LINE="$SUBFOLDER"
+                ;;
+            *)
+                if [ -d "$drafts_folder/$selection" ]; then
+                    SAVE_DIR="$drafts_folder/$selection"
+                else
+                    FIRST_LINE="$SUBFOLDER"
+                fi
+                ;;
+        esac
     fi
 fi
 
