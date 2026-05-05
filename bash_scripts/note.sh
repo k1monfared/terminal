@@ -14,17 +14,49 @@ if [ -n "$SUBFOLDER" ]; then
     if [ -d "$drafts_folder/$SUBFOLDER" ]; then
         SAVE_DIR="$drafts_folder/$SUBFOLDER"
     else
-        printf "Folder '%s' does not exist. Create it? [y/N]: " "$SUBFOLDER"
-        read answer
-        case "$answer" in
-            y|Y|yes|YES)
-                mkdir -p -- "$drafts_folder/$SUBFOLDER"
-                SAVE_DIR="$drafts_folder/$SUBFOLDER"
-                ;;
-            *)
+        echo "Folder '$SUBFOLDER' not found in $drafts_folder."
+        echo "Choose an option:"
+        echo "  1) Create '$SUBFOLDER' (as typed)"
+
+        existing=""
+        i=2
+        for d in "$drafts_folder"/*/; do
+            [ -d "$d" ] || continue
+            name=$(basename "$d")
+            existing="$existing$name
+"
+            echo "  $i) $name"
+            i=$((i + 1))
+        done
+
+        new_name_idx=$i
+        echo "  $i) Type a new name"
+
+        printf "Selection [1]: "
+        read -r choice
+        choice=${choice:-1}
+
+        if [ "$choice" = "1" ]; then
+            mkdir -p -- "$drafts_folder/$SUBFOLDER"
+            SAVE_DIR="$drafts_folder/$SUBFOLDER"
+        elif [ "$choice" = "$new_name_idx" ]; then
+            printf "New folder name: "
+            read -r new_name
+            if [ -n "$new_name" ]; then
+                mkdir -p -- "$drafts_folder/$new_name"
+                SAVE_DIR="$drafts_folder/$new_name"
+            else
                 FIRST_LINE="$SUBFOLDER"
-                ;;
-        esac
+            fi
+        else
+            selected=$(printf '%s' "$existing" | sed -n "$((choice - 1))p")
+            if [ -n "$selected" ] && [ -d "$drafts_folder/$selected" ]; then
+                SAVE_DIR="$drafts_folder/$selected"
+            else
+                echo "Invalid selection. Saving in default folder."
+                FIRST_LINE="$SUBFOLDER"
+            fi
+        fi
     fi
 fi
 
