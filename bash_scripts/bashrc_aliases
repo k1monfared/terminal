@@ -277,6 +277,9 @@ alias fza="sudo find / -type f 2>/dev/null | fzf --preview 'head -n 100 {}'"
 
 ## memory
 alias mem="sh $bashscripts/memory.sh"
+
+## process monitor (sampled CPU/MEM/GPU summary, run `procmon -h` for help)
+alias procmon="bash $bashscripts/procmon.sh"
 remem() {
     local search_dir="$memory_address"
     local selected_line
