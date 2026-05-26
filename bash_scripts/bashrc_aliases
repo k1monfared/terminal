@@ -17,6 +17,8 @@ alias aliases_list="cat $bashscripts/bashrc_aliases"
 ## load private info
 export bashscripts
 source $bashscripts/bashrc.private
+# additional AI provider keys (separate file so it can be edited / shared independently)
+[[ -f "$bashscripts/ai_providers.private" ]] && source "$bashscripts/ai_providers.private"
 
 ## load drive utilities
 source $bashscripts/drives.sh
@@ -30,6 +32,11 @@ export QT_IM_MODULE=ibus
 
 ## hibernation
 alias hib='sudo systemctl hibernate'
+
+## gnome remote desktop (RDP on port 3389). Quick toggle for security.
+alias remote_on='systemctl --user enable --now gnome-remote-desktop.service'
+alias remote_off='systemctl --user disable --now gnome-remote-desktop.service'
+alias remote_status='systemctl --user is-active gnome-remote-desktop.service'
 
 ## bat
 alias bat="batcat"
@@ -405,39 +412,157 @@ libby_get ()
     echo "Done: $dir"
 }
 
-# AI tools
-# Function to use Poe subscription
+# AI tools: provider routing for Claude Code and OpenCode
+#   use-poe        / use_poe         : route both tools through Poe
+#   use-claude     / use_claude      : Claude Code uses Claude.ai subscription (OAuth); OpenCode falls back to Poe Claude (Anthropic TOS forbids using subscription auth from third-party tools like OpenCode)
+#   use-claude-api / use_claude_api  : route both tools to direct Anthropic API (uses CLAUDE_API_KEY; needs credits at console.anthropic.com)
+#   check-claude-config              : print current routing
+
+# Helper: write the default model into ~/.config/opencode/opencode.json
+_set_opencode_model() {
+    local model="$1"
+    local cfg="$HOME/.config/opencode/opencode.json"
+    mkdir -p "$(dirname "$cfg")"
+    python3 - "$cfg" "$model" <<'PY'
+import json, sys, os
+cfg, model = sys.argv[1], sys.argv[2]
+data = {}
+if os.path.exists(cfg):
+    try:
+        with open(cfg) as f:
+            data = json.load(f)
+    except Exception:
+        data = {}
+data.setdefault("$schema", "https://opencode.ai/config.json")
+data["model"] = model
+with open(cfg, "w") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+PY
+}
+
+# Route Claude Code + OpenCode through Poe (Anthropic-compatible endpoint)
 use-poe() {
     export ANTHROPIC_AUTH_TOKEN="$POE_API_KEY"
     export ANTHROPIC_BASE_URL="https://api.poe.com"
     export ANTHROPIC_API_KEY=""
-    echo "Switched to Poe subscription"
+    _set_opencode_model "poe/anthropic/claude-opus-4.7"
+    echo "Switched to Poe. Claude Code routes to api.poe.com. OpenCode default: poe/anthropic/claude-opus-4.7"
 }
+alias use_poe=use-poe
 
-# Function to use Claude subscription
-use-claude-api() {
-    unset ANTHROPIC_AUTH_TOKEN
-    unset ANTHROPIC_BASE_URL
-    export ANTHROPIC_API_KEY="$CLAUDE_API_KEY"
-    echo "Switched to Claude API"
-}
-
+# Claude Code uses Claude.ai subscription (OAuth from ~/.claude/.credentials.json).
+# OpenCode falls back to Poe Claude because Anthropic TOS forbids subscription
+# auth from third-party clients.
 use-claude() {
     unset ANTHROPIC_API_KEY
     unset ANTHROPIC_AUTH_TOKEN
     unset ANTHROPIC_BASE_URL
-    echo "Switched to default Claude Code"
+    _set_opencode_model "poe/anthropic/claude-opus-4.7"
+    echo "Switched to Claude subscription. Claude Code uses OAuth login. OpenCode falls back to poe/anthropic/claude-opus-4.7."
 }
+alias use_claude=use-claude
+
+# Route Claude Code + OpenCode to direct Anthropic API (CLAUDE_API_KEY).
+# Needs an Anthropic API credit balance at console.anthropic.com.
+use-claude-api() {
+    unset ANTHROPIC_AUTH_TOKEN
+    unset ANTHROPIC_BASE_URL
+    export ANTHROPIC_API_KEY="$CLAUDE_API_KEY"
+    _set_opencode_model "anthropic/claude-opus-4-7"
+    echo "Switched to direct Anthropic API. Claude Code routes to api.anthropic.com. OpenCode default: anthropic/claude-opus-4-7. (Needs Anthropic API credits.)"
+}
+alias use_claude_api=use-claude-api
 
 # Photoblog
 alias photoblog="python ~/public/photoblog/scripts/editor.py"
 
-# Function to check current setup
+# aichat wrappers
+#   chat                                  REPL, resumes the rolling "default" session
+#   chat "question"                       one-shot
+#   chat -s research                      REPL, named session
+#   chat -m gemini:gemini-2.5-pro "..."   one-shot on a specific model
+#   chats                                 view invocation history (timestamp, model, session)
+chat() {
+    if [[ "$1" == "help" || "$1" == "-h" || "$1" == "--help" ]]; then
+        cat <<'EOF'
+chat cheatsheet
+
+USAGE
+  chat                              REPL, resumes the "default" rolling session
+  chat "question"                   one-shot, no session
+  chat -s NAME                      REPL, named session NAME (created if new)
+  chat -m PROVIDER:MODEL "..."      one-shot on a specific model
+  chat -m PROVIDER:MODEL -s NAME    REPL with both pinned
+  chat help                         this cheatsheet
+  chats                             view invocation history (less +G on the log)
+
+REPL COMMANDS  (inside the chat)
+  .model <TAB>                      switch model, tab-completes
+  .session NAME                     open or resume a named session
+  .info                             show current model and session
+  .help                             full aichat REPL help
+  .exit  / Ctrl-D                   save session and quit
+
+PROVIDERS  (use as PROVIDER:MODEL with -m or inside REPL with .model)
+  poe          Poe (uses bot names: Claude-Opus-4.7, Claude-Sonnet-4.6, GPT-5.4, Gemini-3.1-Pro, ...)
+  claude       Direct Anthropic API (needs API credits)
+  gemini       Google AI Studio (free tier)
+  github       GitHub Models (free tier; 8k per-request cap)
+  nvidia       NVIDIA build (free tier)
+  cerebras     Cerebras (free tier; 8k per-request cap)
+  openrouter   OpenRouter (many ":free" models, plus paid)
+  mistral      Mistral La Plateforme (free tier)
+
+LISTS
+  aichat --list-models              all configured models
+  aichat --list-sessions            all saved sessions
+  aichat --sync-models              refresh aichat's model catalog
+
+FILES
+  ~/.config/aichat/config.yaml      add/remove models, set defaults
+  ~/.config/aichat/sessions/        saved session transcripts
+  ~/.config/aichat/messages.md      built-in flat log of one-shots
+  ~/.config/aichat/invocations.log  what `chat` logs (timestamp, model, session)
+EOF
+        return 0
+    fi
+
+    local args=("$@")
+    [[ ${#args[@]} -eq 0 ]] && args=(-s default)
+
+    # Detect model and session from args for the invocation log
+    local model="(config default)" session="(ephemeral)" i
+    for (( i=0; i<${#args[@]}; i++ )); do
+        case "${args[$i]}" in
+            -m|--model)   model="${args[$((i+1))]}" ;;
+            -s|--session) session="${args[$((i+1))]:-default}" ;;
+        esac
+    done
+
+    mkdir -p "$HOME/.config/aichat"
+    printf '%s\tmodel=%s\tsession=%s\targs=%s\n' \
+        "$(date -Iseconds)" "$model" "$session" "${args[*]}" \
+        >> "$HOME/.config/aichat/invocations.log"
+
+    aichat "${args[@]}"
+}
+alias chats='less +G ~/.config/aichat/invocations.log'
+
+# Print current AI routing for Claude Code and OpenCode
 check-claude-config() {
     echo "Current configuration:"
-    echo "ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:+[SET]}"
-    echo "ANTHROPIC_AUTH_TOKEN: ${ANTHROPIC_AUTH_TOKEN:+[SET]}"
-    echo "ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-[NOT SET]}"
+    echo "  ANTHROPIC_API_KEY:    ${ANTHROPIC_API_KEY:+[SET]}"
+    echo "  ANTHROPIC_AUTH_TOKEN: ${ANTHROPIC_AUTH_TOKEN:+[SET]}"
+    echo "  ANTHROPIC_BASE_URL:   ${ANTHROPIC_BASE_URL:-[NOT SET]}"
+    local cfg="$HOME/.config/opencode/opencode.json"
+    if [[ -f "$cfg" ]]; then
+        local m
+        m=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('model','[unset]'))" "$cfg" 2>/dev/null)
+        echo "  OpenCode default:     ${m:-[parse error]}"
+    else
+        echo "  OpenCode default:     [no config file]"
+    fi
 }
 
 # News Reader
