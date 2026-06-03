@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Libby Audiobook Downloader
 // @namespace    https://github.com/
-// @version      1.7.0
+// @version      1.7.1
 // @description  Download audiobook MP3s (and supplementary-content PDFs) from the OverDrive web player (post-ODM era)
 // @match        https://*.listen.overdrive.com/*
 // @match        https://*.read.overdrive.com/*
@@ -539,6 +539,7 @@
         const manifest = [
             `title="${sanitizeName(meta.title)}"`,
             `author="${sanitizeName(meta.author)}"`,
+            `kind="supplement"`,
             `files=("${pdfName}")`
         ].join('\n') + '\n';
         // Unique manifest name (title slug + supplement CRID); libby_get globs *__libby_manifest.sh.

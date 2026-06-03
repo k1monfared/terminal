@@ -400,33 +400,65 @@ libby_get ()
         return 1
     fi
 
-    local manifest title author metadata input_author dir f src clean
+    # Split audiobooks from supplementary content (kind="supplement"). Audiobooks
+    # are processed first so supplements can be filed into the same folder.
+    local m audio=() supp=()
+    for m in "${manifests[@]}"; do
+        if grep -q '^kind="supplement"' "$m"; then supp+=("$m"); else audio+=("$m"); fi
+    done
+
+    local manifest title author metadata kind input_author dir d f src clean base
     local -a files
-    for manifest in "${manifests[@]}"; do
-        title=""; author=""; metadata=""; files=()
+    local -A audio_dir          # title -> destination folder, for supplements to join
+
+    # Pass 1: audiobooks
+    for manifest in "${audio[@]}"; do
+        title=""; author=""; metadata=""; kind=""; files=()
         source "$manifest"
         read -rp "Author for \"$title\" [${author:-blank}, enter to keep]: " input_author
         [[ -n "$input_author" ]] && author="$input_author"
         dir="$audiobooks_folder${author:+$author - }$title"
+        audio_dir["$title"]="$dir"
         mkdir -p "$dir"
         for f in "${files[@]}"; do
-            src="$HOME/Downloads/$f"
-            clean="${f##*__}"          # strip "<slug>__" prefix (no-op for legacy names)
-            if [[ -f "$src" ]]; then
-                mv "$src" "$dir/$clean"
-                echo "Moved: $clean"
-            else
-                echo "Missing: $f (skipped)"
-            fi
+            src="$HOME/Downloads/$f"; clean="${f##*__}"   # strip "<slug>__" prefix (no-op for legacy names)
+            if [[ -f "$src" ]]; then mv "$src" "$dir/$clean"; echo "Moved: $clean"
+            else echo "Missing: $f (skipped)"; fi
         done
-        # move the metadata file (nested loglog) downloaded alongside the parts
         if [[ -n "$metadata" && -f "$HOME/Downloads/$metadata" ]]; then
-            mv "$HOME/Downloads/$metadata" "$dir/${metadata##*__}"
-            echo "Moved: ${metadata##*__}"
+            mv "$HOME/Downloads/$metadata" "$dir/${metadata##*__}"; echo "Moved: ${metadata##*__}"
         fi
         mv "$manifest" "$dir/libby_manifest.sh"
         echo "Done: $dir"
     done
+
+    # Pass 2: supplements — always go into the audiobook's folder. Match by title
+    # to a folder created this run, or already on disk ("<author> - <title>" / "<title>");
+    # only fall back to the supplement's own metadata if no audiobook folder exists.
+    for manifest in "${supp[@]}"; do
+        title=""; author=""; metadata=""; kind=""; files=()
+        source "$manifest"
+        dir=""
+        if [[ -n "${audio_dir["$title"]+x}" ]]; then
+            dir="${audio_dir["$title"]}"
+        else
+            for d in "$audiobooks_folder"*" - $title" "$audiobooks_folder$title"; do
+                [[ -d "$d" ]] && { dir="$d"; break; }
+            done
+        fi
+        [[ -z "$dir" ]] && dir="$audiobooks_folder${author:+$author - }$title"
+        mkdir -p "$dir"
+        for f in "${files[@]}"; do
+            src="$HOME/Downloads/$f"; clean="${f##*__}"
+            if [[ -f "$src" ]]; then mv "$src" "$dir/$clean"; echo "Moved: $clean"
+            else echo "Missing: $f (skipped)"; fi
+        done
+        # keep the audiobook's libby_manifest.sh; park the supplement's under its own name
+        if [[ -e "$dir/libby_manifest.sh" ]]; then base="${manifest##*/}"; mv "$manifest" "$dir/$base"
+        else mv "$manifest" "$dir/libby_manifest.sh"; fi
+        echo "Done (supplement): $dir"
+    done
+
     ls "$audiobooks_folder" > "$public_notes_folder/audiobooks"
 }
 
