@@ -15,19 +15,30 @@ Downloads audiobook MP3s from the OverDrive web player (replaces the old `.odm` 
 2. Click **Listen in browser** — this opens `*.listen.overdrive.com`
 3. Wait a moment for the player to load, then click the **⬇** button in the top-right corner
    1. this will take a while before it shows up, be patient. 
-4. All MP3 parts and a `libby_manifest.sh` file download to `~/Downloads`
+4. All MP3 parts, a manifest, and a metadata log download to `~/Downloads`. Each file is prefixed with a per-book title slug (e.g. `im-okyoure-ok__001_Part01.mp3`, `im-okyoure-ok__libby_manifest.sh`) so you can download several books back-to-back without them colliding.
 5. In the terminal, run:
    ```
    libby_get
    ```
-   Enter the author name when prompted (or press Enter to leave blank). Files are moved to `$audiobooks_folder/Author - Title/`.
+   It processes every pending book in `~/Downloads`, prompting once per book. The author and title are captured automatically from the player, so you can just press Enter to keep them (type a name to override). Each book is moved to `$audiobooks_folder/Author - Title/`, the slug prefix is stripped from the filenames, and the metadata log comes along.
+
+### Supplementary PDFs
+
+Some audiobooks come with publisher supplementary content (e.g. an enhancement PDF). On the loans page, expand **Supplementary content** and click **Read now in browser** — this opens a separate reader at `*.read.overdrive.com`, where the same ⬇ button appears. Click it to walk every page, assemble them into a single PDF, and download it named after the supplement's own title, e.g. `I'm OK—You're OK-<id>.pdf`. A title can have more than one supplement; open each and click ⬇ — each is saved with a distinct `-<id>` (derived from its own CRID) so they never collide even when they share a title. `libby_get` files them into the matching `Author - Title/` folder.
+
+### Troubleshooting
+
+- **Metadata log is empty / author blank:** you are likely running an old cached collection. After updating the script in Tampermonkey (Save), open the book in a **fresh tab** rather than reloading — `sessionStorage` from a previous click in the same tab can short-circuit collection. Confirm only one copy of the script is installed and that it reports the current `@version`.
+- **"Missing N part(s)" alert:** the player did not load some parts in time. Reload the player, let it fully load, and click ⬇ again.
 
 ## How it works
 
-- Only activates on `*.listen.overdrive.com` — nowhere else.
+- Activates on `*.listen.overdrive.com` (audiobooks) and `*.read.overdrive.com` (supplementary content) — nowhere else.
 - On page load, injects a single ⬇ button. Nothing else runs until you click it.
+- On `read.overdrive.com` it walks every page via the reader's own navigation, reads each page image from its same-origin frame, re-encodes to JPEG, and assembles a single PDF in-memory (a tiny built-in PDF writer — no external library).
 - On click, it loads the player's own internal `audio-proxy-element` module via RequireJS and temporarily patches its `seek()` method to record the MP3 URL passed to it each time. It then walks every book part by calling `spool.seekWithinBook()` for each entry, which fires the patched seek and captures the URL. The original `seek()` is always restored when done.
 - The manifest file (`libby_manifest.sh`) is generated entirely in-memory — no network request. Each MP3 is fetched from OverDrive's own CDN (the same URLs the player streams from) and saved via a browser download.
+- A `libby_metadata.log` file (nested loglog format) is also generated, merging two sources: the player's in-page openbook manifest (`BIF.map` — title, authors, narrators, chapters, per-part durations and sizes, cover, description) and OverDrive's public Thunder catalog API by CRID (publisher, publish date, subjects, BISAC codes, ISBN, ratings, cover URL). The Thunder call is best-effort: if it fails, the in-page data is still written. Files are numbered by their true part number; downloads carry a per-book title-slug prefix that `libby_get` strips on import.
 - No data is sent anywhere. The only network activity is fetching MP3s from OverDrive, which you're already authenticated to.
 - Collected URLs are stored in `sessionStorage` only (cleared when the tab closes).
 
