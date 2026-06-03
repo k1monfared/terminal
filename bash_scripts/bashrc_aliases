@@ -388,28 +388,46 @@ new_project() {
 # library
 libby_get ()
 {
-    local manifest="$HOME/Downloads/libby_manifest.sh"
-    if [[ ! -f "$manifest" ]]; then
+    # Each book downloads with a "<title-slug>__" filename prefix so multiple books
+    # in ~/Downloads do not collide. Process every pending manifest, stripping the
+    # prefix as files are moved into "$audiobooks_folder/Author - Title/".
+    shopt -s nullglob
+    local manifests=("$HOME/Downloads/"*"__libby_manifest.sh")
+    # legacy unprefixed manifest from older script versions
+    [[ -f "$HOME/Downloads/libby_manifest.sh" ]] && manifests+=("$HOME/Downloads/libby_manifest.sh")
+    if (( ${#manifests[@]} == 0 )); then
         echo "No manifest found. Open a book in the Libby web player and click Download."
         return 1
     fi
-    source "$manifest"
-    read -rp "Author [press enter to leave blank]: " input_author
-    [[ -n "$input_author" ]] && author="$input_author"
-    local dir="$audiobooks_folder${author:+$author - }$title"
-    mkdir -p "$dir"
-    for f in "${files[@]}"; do
-        local src="$HOME/Downloads/$f"
-        if [[ -f "$src" ]]; then
-            mv "$src" "$dir/"
-            echo "Moved: $f"
-        else
-            echo "Missing: $f (skipped)"
+
+    local manifest title author metadata input_author dir f src clean
+    local -a files
+    for manifest in "${manifests[@]}"; do
+        title=""; author=""; metadata=""; files=()
+        source "$manifest"
+        read -rp "Author for \"$title\" [${author:-blank}, enter to keep]: " input_author
+        [[ -n "$input_author" ]] && author="$input_author"
+        dir="$audiobooks_folder${author:+$author - }$title"
+        mkdir -p "$dir"
+        for f in "${files[@]}"; do
+            src="$HOME/Downloads/$f"
+            clean="${f##*__}"          # strip "<slug>__" prefix (no-op for legacy names)
+            if [[ -f "$src" ]]; then
+                mv "$src" "$dir/$clean"
+                echo "Moved: $clean"
+            else
+                echo "Missing: $f (skipped)"
+            fi
+        done
+        # move the metadata file (nested loglog) downloaded alongside the parts
+        if [[ -n "$metadata" && -f "$HOME/Downloads/$metadata" ]]; then
+            mv "$HOME/Downloads/$metadata" "$dir/${metadata##*__}"
+            echo "Moved: ${metadata##*__}"
         fi
+        mv "$manifest" "$dir/libby_manifest.sh"
+        echo "Done: $dir"
     done
-    mv "$manifest" "$dir/"
     ls "$audiobooks_folder" > "$public_notes_folder/audiobooks"
-    echo "Done: $dir"
 }
 
 # AI tools: provider routing for Claude Code and OpenCode
