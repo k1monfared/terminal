@@ -407,7 +407,7 @@ libby_get ()
         if grep -q '^kind="supplement"' "$m"; then supp+=("$m"); else audio+=("$m"); fi
     done
 
-    local manifest title author metadata kind input_author dir d f src clean base
+    local manifest title author metadata kind dir d f src clean base
     local -a files
     local -A audio_dir          # title -> destination folder, for supplements to join
 
@@ -415,8 +415,9 @@ libby_get ()
     for manifest in "${audio[@]}"; do
         title=""; author=""; metadata=""; kind=""; files=()
         source "$manifest"
-        read -rp "Author for \"$title\" [${author:-blank}, enter to keep]: " input_author
-        [[ -n "$input_author" ]] && author="$input_author"
+        # Prefill the captured author as an editable line (readline): edit in place or
+        # press Enter to keep; clear it to file the book with no "Author - " prefix.
+        read -rep "Author for \"$title\": " -i "$author" author
         dir="$audiobooks_folder${author:+$author - }$title"
         audio_dir["$title"]="$dir"
         mkdir -p "$dir"
