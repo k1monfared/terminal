@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Libby Audiobook Downloader
 // @namespace    https://github.com/
-// @version      1.7.2
+// @version      1.7.3
 // @description  Download audiobook MP3s (and supplementary-content PDFs) from the Libby/OverDrive web player (post-ODM era)
 // @match        https://*.listen.libbyapp.com/*
 // @match        https://*.read.libbyapp.com/*
@@ -185,36 +185,56 @@
             var mm = u.split('#')[0].match(/Part(\\d+)\\.mp3/i);
             return mm ? parseInt(mm[1], 10) : null;
         }
-        function capturedPartCount() {
+        function capturedPartSet() {
             var s = {};
             for (var k = 0; k < captured.length; k++) { var n = partOf(captured[k]); if (n != null) s[n] = 1; }
-            return Object.keys(s).length;
+            return s;
         }
+        function capturedPartCount() { return Object.keys(capturedPartSet()).length; }
         function totalParts() {
             return (typeof BIF !== 'undefined' && BIF.map && Array.isArray(BIF.map.spine)) ? BIF.map.spine.length : 0;
         }
 
-        // Walk every book part to trigger audio loading. The player will not re-issue
-        // a load for a part it has already buffered, and a single sweep often misses a
-        // few parts, so we repeat the sweep (up to WALK_MAX_PASSES) until every spine
-        // part has been captured. Seek positions come from the compass (navigation).
+        // Build a seek target INSIDE every spine part. Walking the compass (chapter
+        // navigation) instead deterministically MISSES any part that contains no chapter
+        // boundary — that part is never seeked into, so it never loads, no matter how
+        // many passes run. Offsets are the cumulative sum of each part's audio-duration
+        // (seconds -> ms); we aim a few seconds into the part so boundary rounding can't
+        // land us on the previous one.
+        function spineSeekPlan() {
+            var spine = (typeof BIF !== 'undefined' && BIF.map && Array.isArray(BIF.map.spine)) ? BIF.map.spine : [];
+            var plan = [], acc = 0;
+            for (var i = 0; i < spine.length; i++) {
+                var dur = (spine[i]['audio-duration'] || 0) * 1000;
+                var pn  = partOf(spine[i].path);
+                plan.push({ part: pn != null ? pn : (i + 1), seekMs: acc + (dur > 0 ? Math.min(5000, dur / 2) : 0) });
+                acc += dur;
+            }
+            return plan;
+        }
+
+        // Sweep the spine, seeking only to parts not yet captured. The player will not
+        // re-issue a load for a part it already buffered, and a seek occasionally fails
+        // to trigger one, so repeat (up to WALK_MAX_PASSES) — but with direct per-part
+        // seeks a single pass normally captures everything.
         var WALK_MAX_PASSES = 4;
-        function walk(compass, spool, i, pass) {
-            var part = compass.at(i);
-            if (!part || part.bookMilliseconds === undefined || !isFinite(part.bookMilliseconds)) {
-                var have = capturedPartCount(), total = totalParts();
-                if (have < total && pass + 1 < WALK_MAX_PASSES) {
-                    console.log('[Libby DL] Pass ' + (pass + 1) + ': ' + have + '/' + total + ' parts — sweeping again.');
-                    walk(compass, spool, 0, pass + 1);
+        function walk(spool, plan, i, pass) {
+            var have = capturedPartSet();
+            while (i < plan.length && have[plan[i].part]) i++;   // skip already-captured parts
+            if (i >= plan.length) {
+                var got = capturedPartCount(), total = totalParts();
+                if (got < total && pass + 1 < WALK_MAX_PASSES) {
+                    console.log('[Libby DL] Pass ' + (pass + 1) + ': ' + got + '/' + total + ' parts — sweeping missing again.');
+                    walk(spool, plan, 0, pass + 1);
                     return;
                 }
-                console.log('[Libby DL] Walk complete. Captured ' + have + '/' + total + ' parts.');
+                console.log('[Libby DL] Walk complete. Captured ' + got + '/' + total + ' parts.');
                 sessionStorage.setItem(READY_KEY, '1');
                 window.dispatchEvent(new Event('libby_dl_ready'));
                 return;
             }
-            spool.seekWithinBook(part.bookMilliseconds);
-            setTimeout(function () { walk(compass, spool, i + 1, pass); }, 400);
+            spool.seekWithinBook(plan[i].seekMs);
+            setTimeout(function () { walk(spool, plan, i + 1, pass); }, 400);
         }
 
         function init() {
@@ -227,7 +247,7 @@
                 setTimeout(function () { clearInterval(metaTimer); }, 20000);
             }
             hookSeek();
-            walk(BIF.objects.compass, BIF.objects.spool, 0, 0);
+            walk(BIF.objects.spool, spineSeekPlan(), 0, 0);
         }
 
         // Wait until the player is FULLY ready before walking: the audio engine
@@ -778,11 +798,12 @@
             .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'audiobook';
         const prefix = slugify(meta.title || rawTitle) + '__';
 
+        // Single zero-padded part number: "Part017.mp3". Padding keeps the lexical
+        // sort correct (Part017 before Part002 would be wrong unpadded); one number
+        // avoids the redundant "017_Part17" pair the old "<nnn>_Part<pp>" form produced.
         const filenames = parsed.map((p, i) => {
             const num = p.part != null ? p.part : (i + 1);
-            const nnn = String(num).padStart(padWidth, '0');
-            const pp  = String(num).padStart(2, '0');
-            return `${prefix}${nnn}_Part${pp}.mp3`;
+            return `${prefix}Part${String(num).padStart(padWidth, '0')}.mp3`;
         });
 
         // Flag expected parts (from the spine) that were never captured.
