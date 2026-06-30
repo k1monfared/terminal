@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Libby Audiobook Downloader
 // @namespace    https://github.com/
-// @version      1.7.5
+// @version      1.7.6
 // @description  Download audiobook MP3s (and supplementary-content PDFs) from the Libby/OverDrive web player (post-ODM era)
 // @match        https://*.listen.libbyapp.com/*
 // @match        https://*.read.libbyapp.com/*
@@ -804,7 +804,11 @@
         const rawTitle  = (meta.title || unsafeWindow.document.title
             .replace(/\s*[|\-–]\s*(OverDrive|Libby).*$/i, '')).trim() || 'audiobook';
         const safeTitle = sanitize(rawTitle);
-        const safeAuthor = sanitize(meta.author);
+        // Join every credited author with ", " (multi-author books); fall back to the
+        // single primary author when no creator is tagged with an author role.
+        const creators = (meta.details && meta.details.creators) || [];
+        const authorNames = creators.filter(c => /author/i.test(c.role || '')).map(c => c.name).filter(Boolean);
+        const safeAuthor = sanitize(authorNames.length ? authorNames.join(', ') : meta.author);
 
         // Gather catalog metadata from Thunder (best-effort) and build the loglog file.
         const crid = meta.details && meta.details.crid;
