@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Libby Audiobook Downloader
 // @namespace    https://github.com/
-// @version      1.7.3
+// @version      1.7.4
 // @description  Download audiobook MP3s (and supplementary-content PDFs) from the Libby/OverDrive web player (post-ODM era)
 // @match        https://*.listen.libbyapp.com/*
 // @match        https://*.read.libbyapp.com/*
@@ -213,11 +213,21 @@
             return plan;
         }
 
-        // Sweep the spine, seeking only to parts not yet captured. The player will not
+        // Persist results and signal the Tampermonkey side that collection is done.
+        function finishWalk() {
+            var got = capturedPartCount(), total = totalParts();
+            console.log('[Libby DL] Walk complete. Captured ' + got + '/' + total + ' parts.');
+            sessionStorage.setItem(READY_KEY, '1');
+            window.dispatchEvent(new Event('libby_dl_ready'));
+        }
+
+        var WALK_MAX_PASSES = 4;
+
+        // Primary sweep: seek directly to a target inside each spine part (needs
+        // audio-duration). Seeks only to parts not yet captured. The player will not
         // re-issue a load for a part it already buffered, and a seek occasionally fails
         // to trigger one, so repeat (up to WALK_MAX_PASSES) — but with direct per-part
         // seeks a single pass normally captures everything.
-        var WALK_MAX_PASSES = 4;
         function walk(spool, plan, i, pass) {
             var have = capturedPartSet();
             while (i < plan.length && have[plan[i].part]) i++;   // skip already-captured parts
@@ -228,13 +238,31 @@
                     walk(spool, plan, 0, pass + 1);
                     return;
                 }
-                console.log('[Libby DL] Walk complete. Captured ' + got + '/' + total + ' parts.');
-                sessionStorage.setItem(READY_KEY, '1');
-                window.dispatchEvent(new Event('libby_dl_ready'));
+                finishWalk();
                 return;
             }
             spool.seekWithinBook(plan[i].seekMs);
             setTimeout(function () { walk(spool, plan, i + 1, pass); }, 400);
+        }
+
+        // Fallback sweep: used when the manifest has no per-part audio-duration, so the
+        // spine offsets cannot be computed. Seek to every compass navigation point. This
+        // can miss parts that contain no chapter boundary (the reason the spine walk
+        // exists), but it is the best available without durations.
+        function walkCompass(compass, spool, i, pass) {
+            var part = compass.at(i);
+            if (!part || part.bookMilliseconds === undefined || !isFinite(part.bookMilliseconds)) {
+                var have = capturedPartCount(), total = totalParts();
+                if (have < total && pass + 1 < WALK_MAX_PASSES) {
+                    console.log('[Libby DL] Pass ' + (pass + 1) + ': ' + have + '/' + total + ' parts — sweeping again.');
+                    walkCompass(compass, spool, 0, pass + 1);
+                    return;
+                }
+                finishWalk();
+                return;
+            }
+            spool.seekWithinBook(part.bookMilliseconds);
+            setTimeout(function () { walkCompass(compass, spool, i + 1, pass); }, 400);
         }
 
         function init() {
@@ -247,7 +275,16 @@
                 setTimeout(function () { clearInterval(metaTimer); }, 20000);
             }
             hookSeek();
-            walk(BIF.objects.spool, spineSeekPlan(), 0, 0);
+            // Prefer direct per-part seeks (needs audio-duration); fall back to compass
+            // navigation when the manifest provides no durations.
+            var spine = (typeof BIF !== 'undefined' && BIF.map && Array.isArray(BIF.map.spine)) ? BIF.map.spine : [];
+            var hasDur = spine.some(function (s) { return (s['audio-duration'] || 0) > 0; });
+            if (hasDur) {
+                walk(BIF.objects.spool, spineSeekPlan(), 0, 0);
+            } else {
+                console.log('[Libby DL] No spine durations — using compass-navigation fallback.');
+                walkCompass(BIF.objects.compass, BIF.objects.spool, 0, 0);
+            }
         }
 
         // Wait until the player is FULLY ready before walking: the audio engine
