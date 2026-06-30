@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Libby Audiobook Downloader
 // @namespace    https://github.com/
-// @version      1.7.4
+// @version      1.7.5
 // @description  Download audiobook MP3s (and supplementary-content PDFs) from the Libby/OverDrive web player (post-ODM era)
 // @match        https://*.listen.libbyapp.com/*
 // @match        https://*.read.libbyapp.com/*
@@ -221,28 +221,34 @@
             window.dispatchEvent(new Event('libby_dl_ready'));
         }
 
-        var WALK_MAX_PASSES = 4;
+        var WALK_MAX_PASSES = 8;     // hard cap so a stuck book can never loop forever
+        var SETTLE_MS = 1500;        // wait after a sweep so a late signed URL can register
 
         // Primary sweep: seek directly to a target inside each spine part (needs
-        // audio-duration). Seeks only to parts not yet captured. The player will not
-        // re-issue a load for a part it already buffered, and a seek occasionally fails
-        // to trigger one, so repeat (up to WALK_MAX_PASSES) — but with direct per-part
-        // seeks a single pass normally captures everything.
-        function walk(spool, plan, i, pass) {
+        // audio-duration). Seeks only to parts not yet captured. Each part's URL is
+        // server-signed per spine index, so we must make the player load every one —
+        // a distant part's URL sometimes arrives a beat after the sweep ends, so we let
+        // the captures settle, then retry the still-missing parts. Keep retrying until a
+        // whole pass adds nothing new (loads have stalled) rather than a fixed count, so
+        // slow networks get the time they need; WALK_MAX_PASSES is just a safety cap.
+        function walk(spool, plan, i, pass, prevGot) {
             var have = capturedPartSet();
             while (i < plan.length && have[plan[i].part]) i++;   // skip already-captured parts
             if (i >= plan.length) {
-                var got = capturedPartCount(), total = totalParts();
-                if (got < total && pass + 1 < WALK_MAX_PASSES) {
-                    console.log('[Libby DL] Pass ' + (pass + 1) + ': ' + got + '/' + total + ' parts — sweeping missing again.');
-                    walk(spool, plan, 0, pass + 1);
-                    return;
-                }
-                finishWalk();
+                if (capturedPartCount() >= totalParts()) { finishWalk(); return; }   // all in: no wait
+                setTimeout(function () {
+                    var got = capturedPartCount(), total = totalParts();
+                    if (got < total && got > prevGot && pass + 1 < WALK_MAX_PASSES) {
+                        console.log('[Libby DL] Pass ' + (pass + 1) + ': ' + got + '/' + total + ' parts — retrying missing.');
+                        walk(spool, spineSeekPlan(), 0, pass + 1, got);   // rebuild plan in case spine changed
+                        return;
+                    }
+                    finishWalk();
+                }, SETTLE_MS);
                 return;
             }
             spool.seekWithinBook(plan[i].seekMs);
-            setTimeout(function () { walk(spool, plan, i + 1, pass); }, 400);
+            setTimeout(function () { walk(spool, plan, i + 1, pass, prevGot); }, 400);
         }
 
         // Fallback sweep: used when the manifest has no per-part audio-duration, so the
@@ -280,7 +286,7 @@
             var spine = (typeof BIF !== 'undefined' && BIF.map && Array.isArray(BIF.map.spine)) ? BIF.map.spine : [];
             var hasDur = spine.some(function (s) { return (s['audio-duration'] || 0) > 0; });
             if (hasDur) {
-                walk(BIF.objects.spool, spineSeekPlan(), 0, 0);
+                walk(BIF.objects.spool, spineSeekPlan(), 0, 0, -1);
             } else {
                 console.log('[Libby DL] No spine durations — using compass-navigation fallback.');
                 walkCompass(BIF.objects.compass, BIF.objects.spool, 0, 0);
