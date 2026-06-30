@@ -1,8 +1,10 @@
 // ==UserScript==
 // @name         Libby Audiobook Downloader
 // @namespace    https://github.com/
-// @version      1.7.1
-// @description  Download audiobook MP3s (and supplementary-content PDFs) from the OverDrive web player (post-ODM era)
+// @version      1.7.2
+// @description  Download audiobook MP3s (and supplementary-content PDFs) from the Libby/OverDrive web player (post-ODM era)
+// @match        https://*.listen.libbyapp.com/*
+// @match        https://*.read.libbyapp.com/*
 // @match        https://*.listen.overdrive.com/*
 // @match        https://*.read.overdrive.com/*
 // @grant        GM_xmlhttpRequest
@@ -40,7 +42,9 @@
 
     // Two outlets share this script: the audiobook "listen" player and the
     // supplementary-content "read" reader (a fixed-layout ebook = the bundled PDF).
-    const MODE = location.hostname.indexOf('.read.overdrive.com') !== -1 ? 'read' : 'listen';
+    // The player runs in an iframe whose host is now *.listen.libbyapp.com /
+    // *.read.libbyapp.com (formerly *.{listen,read}.overdrive.com); match either.
+    const MODE = /\.read\.(libbyapp|overdrive)\.com$/.test(location.hostname) ? 'read' : 'listen';
 
     // Shared filename helpers (also used by the audiobook path).
     const sanitizeName = s => (s || '').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim();
