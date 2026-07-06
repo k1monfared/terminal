@@ -23,6 +23,56 @@ source $bashscripts/bashrc.private
 ## load drive utilities
 source $bashscripts/drives.sh
 
+# ---- machine identity: name + color for prompt & tmux (see also ssh() below) ----
+_machine_color() {        # ANSI attribute for the prompt, by hostname
+    case "$1" in
+        k76|k1)         echo '1;32' ;;   # local laptop  -> lime green
+        khome|khome-ts) echo '1;35' ;;   # home server   -> magenta
+        *)              echo '1;33' ;;   # anything else -> yellow
+    esac
+}
+_machine_tmux_color() {   # tmux color name for the ssh() tab tag, by hostname
+    case "$1" in
+        k76|k1)         echo green   ;;
+        khome|khome-ts) echo magenta ;;
+        *)              echo yellow  ;;
+    esac
+}
+_machine_name() {         # display name (k1 shows as k76 until the host is renamed)
+    case "$1" in k1) echo k76 ;; khome-ts) echo khome ;; *) echo "$1" ;; esac
+}
+MACHINE_NAME="$(_machine_name "$(hostname -s)")"
+export MACHINE_NAME
+# colored prompt: user@<machine> in the machine's color, path in blue
+PS1='${debian_chroot:+($debian_chroot)}\[\033['"$(_machine_color "$(hostname -s)")"'m\]\u@'"$MACHINE_NAME"'\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+case "$TERM" in
+    xterm*|rxvt*) PS1="\[\e]0;\u@$MACHINE_NAME: \w\a\]$PS1" ;;
+esac
+
+# ssh wrapper: inside tmux, tag the current window with the remote host name in
+# that host's color; clear the tag on disconnect. Plain ssh outside tmux.
+ssh() {
+    if [ -n "$TMUX" ] && [ -t 1 ]; then
+        local a host="" skip=0
+        for a in "$@"; do
+            if [ "$skip" = 1 ]; then skip=0; continue; fi
+            case "$a" in
+                -[bcDEeFIiJLlmOopQRSWw]) skip=1 ;;   # flags that take an argument
+                -*) ;;                                # other flags
+                *) host="$a"; break ;;                # first operand = destination
+            esac
+        done
+        host="${host##*@}"; host="${host%%.*}"; host="${host%-ts}"
+        local col; col="$(_machine_tmux_color "$host")"
+        tmux set-window-option @remote_label "#[fg=$col bold] →$host#[default]" >/dev/null 2>&1
+        command ssh "$@"; local rc=$?
+        tmux set-window-option -u @remote_label >/dev/null 2>&1
+        return $rc
+    fi
+    command ssh "$@"
+}
+# ---- end machine identity ----
+
 # system
 
 ## solving ibus access problem
