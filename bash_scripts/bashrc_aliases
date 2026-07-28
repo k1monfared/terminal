@@ -122,7 +122,7 @@ alias blog="sh $bashscripts/blog.sh"
 pn () # automatically open a public note in the editor
 {
     file=$1
-    $EDITOR "$public_notes_folder/$file"
+    $EDITOR "$public_notes_folder/$file.log"
 }
 pvn () # automatically open a private note in the editor
 {
@@ -142,8 +142,12 @@ git_init ()
     git init &&
     git add --all &&
     git commit -m "Initial commit" &&
-    gh repo create "$cwd" --private
-    git push --set-upstream origin main
+    gh repo create "$cwd" --private --source . --remote origin || return 1
+    # Force origin to SSH so pushes use the SSH key, not gh's https helper.
+    origin_url=$(git remote get-url origin 2>/dev/null)
+    ssh_url=$(echo "$origin_url" | sed -E 's#^https://github\.com/#git@github.com:#; s#(\.git)?$#.git#')
+    git remote set-url origin "$ssh_url"
+    git push --set-upstream origin HEAD
 }
 git_push_all ()
 {
@@ -416,14 +420,22 @@ new_project() {
     git add --all
     git commit -m "Initial commit"
 
-    # Create GitHub repository and push
+    # Create GitHub repository (no --push yet: force the remote to SSH first so
+    # pushes use the SSH key, not gh's https credential helper). See git_protocol note.
     if [[ "$make_public" == "y" || "$make_public" == "Y" ]]; then
-        gh repo create "$clean_name" --public --source . --remote origin --push
+        gh repo create "$clean_name" --public --source . --remote origin
     else
-        gh repo create "$clean_name" --private --source . --remote origin --push
+        gh repo create "$clean_name" --private --source . --remote origin
     fi
 
-    echo "GitHub repository created and connected"
+    # Rewrite the origin URL from https://github.com/OWNER/REPO(.git) to git@github.com:OWNER/REPO.git
+    origin_url=$(git remote get-url origin 2>/dev/null)
+    ssh_url=$(echo "$origin_url" | sed -E 's#^https://github\.com/#git@github.com:#; s#(\.git)?$#.git#')
+    git remote set-url origin "$ssh_url"
+
+    git push --set-upstream origin HEAD
+
+    echo "GitHub repository created and connected (origin: $ssh_url)"
 
     # Open readme.log in vscode
     readme_file="$project_path/readme.log"
@@ -543,12 +555,16 @@ PY
 }
 
 # Route Claude Code + OpenCode through Poe (Anthropic-compatible endpoint)
+#   Poe's endpoint doesn't yet support the newest Anthropic model ids (e.g.
+#   claude-opus-5 => "400 Unsupported model"), so pin Claude Code to the
+#   newest Opus version Poe does support via ANTHROPIC_MODEL.
 use-poe() {
     export ANTHROPIC_AUTH_TOKEN="$POE_API_KEY"
     export ANTHROPIC_BASE_URL="https://api.poe.com"
     export ANTHROPIC_API_KEY=""
+    export ANTHROPIC_MODEL="claude-opus-4.8"
     _set_opencode_model "poe/anthropic/claude-opus-4.7"
-    echo "Switched to Poe. Claude Code routes to api.poe.com. OpenCode default: poe/anthropic/claude-opus-4.7"
+    echo "Switched to Poe. Claude Code routes to api.poe.com, default model claude-opus-4.8. OpenCode default: poe/anthropic/claude-opus-4.7"
 }
 alias use_poe=use-poe
 
@@ -559,6 +575,7 @@ use-claude() {
     unset ANTHROPIC_API_KEY
     unset ANTHROPIC_AUTH_TOKEN
     unset ANTHROPIC_BASE_URL
+    unset ANTHROPIC_MODEL
     _set_opencode_model "poe/anthropic/claude-opus-4.7"
     echo "Switched to Claude subscription. Claude Code uses OAuth login. OpenCode falls back to poe/anthropic/claude-opus-4.7."
 }
@@ -569,6 +586,7 @@ alias use_claude=use-claude
 use-claude-api() {
     unset ANTHROPIC_AUTH_TOKEN
     unset ANTHROPIC_BASE_URL
+    unset ANTHROPIC_MODEL
     export ANTHROPIC_API_KEY="$CLAUDE_API_KEY"
     _set_opencode_model "anthropic/claude-opus-4-7"
     echo "Switched to direct Anthropic API. Claude Code routes to api.anthropic.com. OpenCode default: anthropic/claude-opus-4-7. (Needs Anthropic API credits.)"
@@ -656,6 +674,7 @@ check-claude-config() {
     echo "  ANTHROPIC_API_KEY:    ${ANTHROPIC_API_KEY:+[SET]}"
     echo "  ANTHROPIC_AUTH_TOKEN: ${ANTHROPIC_AUTH_TOKEN:+[SET]}"
     echo "  ANTHROPIC_BASE_URL:   ${ANTHROPIC_BASE_URL:-[NOT SET]}"
+    echo "  ANTHROPIC_MODEL:      ${ANTHROPIC_MODEL:-[NOT SET, uses Claude Code default]}"
     local cfg="$HOME/.config/opencode/opencode.json"
     if [[ -f "$cfg" ]]; then
         local m
