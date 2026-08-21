@@ -94,10 +94,10 @@ ENTRIES=(
     "Projects|casetracker|Case tracker|casetracker"
     "Projects|caseatlas|Case atlas|caseatlas"
 
-    "API|use-poe|Switch to Poe|use-poe"
-    "API|use-claude-api|Switch to Claude API|use-claude-api"
-    "API|use-claude|Default Claude Code|use-claude"
-    "API|check-claude-config|Show API config|check-claude-config"
+    # "API|use-poe|Switch to Poe|use-poe"
+    # "API|use-claude-api|Switch to Claude API|use-claude-api"
+    # "API|use-claude|Default Claude Code|use-claude"
+    # "API|check-claude-config|Show API config|check-claude-config"
 
     "VPN|ppn|ProtonVPN CLI|protonvpn-cli"
 
@@ -111,6 +111,11 @@ ENTRIES=(
     "Tools|jnb|Jupyter Notebook|jupyter notebook"
     "Tools|aliases_edit|Edit aliases file|aliases_edit"
     "Tools|aliases_list|List all aliases|aliases_list"
+
+    "Jobsearch|tflush|Flush tracker rows|tflush flush"
+    "Jobsearch|tflush-watch|Flush when unlocked|tflush flush --watch"
+    "Jobsearch|tflush-show|List queued rows|tflush show"
+    "Jobsearch|tflush-add|Queue a row|tflush add '<json>'"
 )
 
 # Group display order and colors
@@ -134,9 +139,10 @@ _GRP_COLORS=(
     ["Todo"]="\033[1;35m"
     ["Drives"]="\033[1;31m"
     ["Tools"]="\033[1;32m"
+    ["Jobsearch"]="\033[1;33m"
 )
 
-_GRP_ORDER=("System" "Packages" "Notes" "Memory" "Search" "Git" "Files" "Passwords" "Backup" "Photos" "Media" "Projects" "API" "VPN" "News" "Todo" "Drives" "Tools")
+_GRP_ORDER=("System" "Packages" "Notes" "Memory" "Search" "Git" "Files" "Passwords" "Backup" "Photos" "Media" "Projects" "API" "VPN" "News" "Todo" "Drives" "Tools" "Jobsearch")
 
 # ── Print the full reference table ──────────────────────────────────────────
 show_table() {

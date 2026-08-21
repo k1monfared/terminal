@@ -132,11 +132,11 @@ The central configuration file. It defines aliases, shell functions, and environ
 | `notify` | Send a desktop notification |
 | `plotbills` | Plot bills data |
 | `vnc` | Run VNC manager |
-| `new_project` | Interactive project creation: mkdir, git init, GitHub repo, optional template |
-| `use-poe` | Switch Claude Code to use Poe API |
-| `use-claude-api` | Switch Claude Code to use Claude API key |
-| `use-claude` | Switch to default Claude Code auth |
-| `check-claude-config` | Print current AI API configuration |
+| `new_project` | Interactive project creation: mkdir, git init, GitHub repo over SSH, initial push |
+| `use-poe` | (commented out) Switch Claude Code to use Poe API |
+| `use-claude-api` | (commented out) Switch Claude Code to use Claude API key |
+| `use-claude` | (commented out) Switch to default Claude Code auth |
+| `check-claude-config` | (commented out) Print current AI API configuration |
 
 ### Library (audiobooks)
 
