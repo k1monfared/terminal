@@ -118,6 +118,7 @@ alias note="sh $bashscripts/note.sh"
 alias n="sh $bashscripts/quicknote.sh"
 alias ln="sh $bashscripts/lastnote.sh"
 alias notes="search_notes"
+alias daily="python3 $bashscripts/daily.py"
 alias blog="sh $bashscripts/blog.sh"
 pn () # automatically open a public note in the editor
 {
@@ -136,17 +137,36 @@ alias movie="$EDITOR /home/$USER/public/notes/movies.log"
 # github
 alias git_switch="sh $bashscripts/git_switch.sh"
 alias git_who="cat /home/$USER/opt/git_config/active_git_account"
+# Force origin to the SSH URL so pushes use the SSH key, not gh's https
+# credential helper. Returns the SSH URL on success, non-zero if the URL is
+# unexpected. Safe to call when origin is already SSH.
+_force_ssh_remote() {
+    local url ssh_url
+    url=$(git remote get-url origin 2>/dev/null)
+    case "$url" in
+        https://github.com/*)
+            ssh_url="git@github.com:${url#https://github.com/}"
+            ssh_url="${ssh_url%.git}.git"
+            ;;
+        git@*)
+            ssh_url="$url"
+            ;;
+        *)
+            echo "Unexpected origin URL: $url" >&2
+            return 1
+            ;;
+    esac
+    git remote set-url origin "$ssh_url"
+    printf '%s' "$ssh_url"
+}
 git_init ()
 {
     cwd=$(basename "$(pwd)")
     git init &&
     git add --all &&
     git commit -m "Initial commit" &&
-    gh repo create "$cwd" --private --source . --remote origin || return 1
-    # Force origin to SSH so pushes use the SSH key, not gh's https helper.
-    origin_url=$(git remote get-url origin 2>/dev/null)
-    ssh_url=$(echo "$origin_url" | sed -E 's#^https://github\.com/#git@github.com:#; s#(\.git)?$#.git#')
-    git remote set-url origin "$ssh_url"
+    gh repo create "$cwd" --private --source . --remote origin &&
+    ssh_url=$(_force_ssh_remote) &&
     git push --set-upstream origin HEAD
 }
 git_push_all ()
@@ -371,10 +391,14 @@ alias vnc="~/opt/vnc-manager.sh"
 new_project() {
     # Ask for project name
     echo -n "Enter project name: "
-    read project_name
+    read -r project_name
 
     # Replace spaces with underscores and keep only alphanumeric characters and underscores
-    clean_name=$(echo "$project_name" | sed 's/ /_/g' | sed 's/[^a-zA-Z0-9_]//g')
+    clean_name=$(printf '%s' "$project_name" | sed 's/ /_/g' | sed 's/[^a-zA-Z0-9_]//g')
+    if [[ -z "$clean_name" ]]; then
+        echo "Invalid project name."
+        return 1
+    fi
 
     # Check if directory already exists
     project_path="$HOME/public/$clean_name"
@@ -384,56 +408,71 @@ new_project() {
         ls -la "$project_path"
         echo
         echo -n "Enter a new project name [$clean_name]: "
-        read new_name
+        read -r new_name
         if [[ -n "$new_name" ]]; then
-            clean_name=$(echo "$new_name" | sed 's/ /_/g' | sed 's/[^a-zA-Z0-9_]//g')
+            clean_name=$(printf '%s' "$new_name" | sed 's/ /_/g' | sed 's/[^a-zA-Z0-9_]//g')
         fi
         project_path="$HOME/public/$clean_name"
     done
 
     # Create project directory
-    mkdir -p "$project_path"
+    mkdir -p "$project_path" || return 1
 
-    # Ask if Claude Code template should be used
-    echo -n "Use Claude Code template? (y/n): "
-    read use_claude
+    # Claude Code template no longer offered (claude usage commented out)
+    # echo -n "Use Claude Code template? (y/n): "
+    # read use_claude
 
-    if [[ "$use_claude" == "y" || "$use_claude" == "Y" ]]; then
-        template_path="$HOME/public/claude_code_project_template"
-        if [[ -d "$template_path" ]]; then
-            cp -r "$template_path"/. "$project_path/"
-            echo "Claude Code template copied to $project_path"
-        else
-            echo "Warning: Claude Code template not found at $template_path"
-        fi
-    fi
+    # if [[ "$use_claude" == "y" || "$use_claude" == "Y" ]]; then
+    #     template_path="$HOME/public/claude_code_project_template"
+    #     if [[ -d "$template_path" ]]; then
+    #         cp -r "$template_path"/. "$project_path/"
+    #         echo "Claude Code template copied to $project_path"
+    #     else
+    #         echo "Warning: Claude Code template not found at $template_path"
+    #     fi
+    # fi
 
     # Change to project directory and initialize git
-    cd "$project_path"
-    git init
+    cd "$project_path" || return 1
+    git init || return 1
+
+    # Make sure there is something to commit (a fresh dir has nothing but .git)
+    if ! compgen -G '*' > /dev/null; then
+        printf '# %s\n' "$clean_name" > readme.md
+    fi
 
     # Ask if repository should be public
     echo -n "Make repository public? (y/n, default is private): "
-    read make_public
+    read -r make_public
 
     # Add all files and make initial commit
     git add --all
-    git commit -m "Initial commit"
+    if ! git commit -m "Initial commit"; then
+        echo "Initial commit failed."
+        return 1
+    fi
 
     # Create GitHub repository (no --push yet: force the remote to SSH first so
     # pushes use the SSH key, not gh's https credential helper). See git_protocol note.
     if [[ "$make_public" == "y" || "$make_public" == "Y" ]]; then
-        gh repo create "$clean_name" --public --source . --remote origin
+        visibility=public
     else
-        gh repo create "$clean_name" --private --source . --remote origin
+        visibility=private
+    fi
+    if ! gh repo create "$clean_name" --$visibility --source . --remote origin; then
+        echo "Failed to create GitHub repository. Is gh authenticated and the repo not already taken?"
+        return 1
     fi
 
-    # Rewrite the origin URL from https://github.com/OWNER/REPO(.git) to git@github.com:OWNER/REPO.git
-    origin_url=$(git remote get-url origin 2>/dev/null)
-    ssh_url=$(echo "$origin_url" | sed -E 's#^https://github\.com/#git@github.com:#; s#(\.git)?$#.git#')
-    git remote set-url origin "$ssh_url"
+    # Rewrite origin from https://github.com/OWNER/REPO(.git) to git@github.com:OWNER/REPO.git
+    if ! ssh_url=$(_force_ssh_remote); then
+        return 1
+    fi
 
-    git push --set-upstream origin HEAD
+    if ! git push --set-upstream origin HEAD; then
+        echo "Push failed. Check SSH auth to GitHub (ssh -T git@github.com)."
+        return 1
+    fi
 
     echo "GitHub repository created and connected (origin: $ssh_url)"
 
@@ -525,82 +564,85 @@ libby_get ()
     ls "$audiobooks_folder" > "$public_notes_folder/audiobooks"
 }
 
-# AI tools: provider routing for Claude Code and OpenCode
+# AI tools: OpenCode is the default agent, using DeepSeek V4 Flash Free from
+# OpenCode Zen (~/.config/opencode/opencode.json sets model to
+# opencode/deepseek-v4-flash-free). Claude Code and Poe routing is commented out.
 #   use-poe        / use_poe         : route both tools through Poe
 #   use-claude     / use_claude      : Claude Code uses Claude.ai subscription (OAuth); OpenCode falls back to Poe Claude (Anthropic TOS forbids using subscription auth from third-party tools like OpenCode)
 #   use-claude-api / use_claude_api  : route both tools to direct Anthropic API (uses CLAUDE_API_KEY; needs credits at console.anthropic.com)
 #   check-claude-config              : print current routing
 
-# Helper: write the default model into ~/.config/opencode/opencode.json
-_set_opencode_model() {
-    local model="$1"
-    local cfg="$HOME/.config/opencode/opencode.json"
-    mkdir -p "$(dirname "$cfg")"
-    python3 - "$cfg" "$model" <<'PY'
-import json, sys, os
-cfg, model = sys.argv[1], sys.argv[2]
-data = {}
-if os.path.exists(cfg):
-    try:
-        with open(cfg) as f:
-            data = json.load(f)
-    except Exception:
-        data = {}
-data.setdefault("$schema", "https://opencode.ai/config.json")
-data["model"] = model
-with open(cfg, "w") as f:
-    json.dump(data, f, indent=2)
-    f.write("\n")
-PY
-}
+# # Helper: write the default model into ~/.config/opencode/opencode.json
+# _set_opencode_model() {
+#     local model="$1"
+#     local cfg="$HOME/.config/opencode/opencode.json"
+#     mkdir -p "$(dirname "$cfg")"
+#     python3 - "$cfg" "$model" <<'PY'
+# import json, sys, os
+# cfg, model = sys.argv[1], sys.argv[2]
+# data = {}
+# if os.path.exists(cfg):
+#     try:
+#         with open(cfg) as f:
+#             data = json.load(f)
+#     except Exception:
+#         data = {}
+# data.setdefault("$schema", "https://opencode.ai/config.json")
+# data["model"] = model
+# with open(cfg, "w") as f:
+#     json.dump(data, f, indent=2)
+#     f.write("\n")
+# PY
+# }
 
-# Route Claude Code + OpenCode through Poe (Anthropic-compatible endpoint)
-#   Poe's endpoint doesn't yet support the newest Anthropic model ids (e.g.
-#   claude-opus-5 => "400 Unsupported model"), so pin Claude Code to the
-#   newest Opus version Poe does support via ANTHROPIC_MODEL.
-use-poe() {
-    export ANTHROPIC_AUTH_TOKEN="$POE_API_KEY"
-    export ANTHROPIC_BASE_URL="https://api.poe.com"
-    export ANTHROPIC_API_KEY=""
-    export ANTHROPIC_MODEL="claude-opus-4.8"
-    _set_opencode_model "poe/anthropic/claude-opus-4.7"
-    echo "Switched to Poe. Claude Code routes to api.poe.com, default model claude-opus-4.8. OpenCode default: poe/anthropic/claude-opus-4.7"
-}
-alias use_poe=use-poe
+# # Route Claude Code + OpenCode through Poe (Anthropic-compatible endpoint)
+# #   Poe's endpoint doesn't yet support the newest Anthropic model ids (e.g.
+# #   claude-opus-5 => "400 Unsupported model"), so pin Claude Code to the
+# #   newest Opus version Poe does support via ANTHROPIC_MODEL.
+# use-poe() {
+#     export ANTHROPIC_AUTH_TOKEN="$POE_API_KEY"
+#     export ANTHROPIC_BASE_URL="https://api.poe.com"
+#     export ANTHROPIC_API_KEY=""
+#     export ANTHROPIC_MODEL="claude-opus-4.8"
+#     _set_opencode_model "poe/anthropic/claude-opus-4.8"
+#     echo "Switched to Poe. Claude Code routes to api.poe.com, default model claude-opus-4.8. OpenCode default: poe/anthropic/claude-opus-4.8"
+# }
+# alias use_poe=use-poe
 
-# Claude Code uses Claude.ai subscription (OAuth from ~/.claude/.credentials.json).
-# OpenCode falls back to Poe Claude because Anthropic TOS forbids subscription
-# auth from third-party clients.
-use-claude() {
-    unset ANTHROPIC_API_KEY
-    unset ANTHROPIC_AUTH_TOKEN
-    unset ANTHROPIC_BASE_URL
-    unset ANTHROPIC_MODEL
-    _set_opencode_model "poe/anthropic/claude-opus-4.7"
-    echo "Switched to Claude subscription. Claude Code uses OAuth login. OpenCode falls back to poe/anthropic/claude-opus-4.7."
-}
-alias use_claude=use-claude
+# # Claude Code uses Claude.ai subscription (OAuth from ~/.claude/.credentials.json).
+# # OpenCode falls back to Poe Claude because Anthropic TOS forbids subscription
+# # auth from third-party clients.
+# use-claude() {
+#     unset ANTHROPIC_API_KEY
+#     unset ANTHROPIC_AUTH_TOKEN
+#     unset ANTHROPIC_BASE_URL
+#     unset ANTHROPIC_MODEL
+#     _set_opencode_model "poe/anthropic/claude-opus-4.7"
+#     echo "Switched to Claude subscription. Claude Code uses OAuth login. OpenCode falls back to poe/anthropic/claude-opus-4.7."
+# }
+# alias use_claude=use-claude
 
-# Route Claude Code + OpenCode to direct Anthropic API (CLAUDE_API_KEY).
-# Needs an Anthropic API credit balance at console.anthropic.com.
-use-claude-api() {
-    unset ANTHROPIC_AUTH_TOKEN
-    unset ANTHROPIC_BASE_URL
-    unset ANTHROPIC_MODEL
-    export ANTHROPIC_API_KEY="$CLAUDE_API_KEY"
-    _set_opencode_model "anthropic/claude-opus-4-7"
-    echo "Switched to direct Anthropic API. Claude Code routes to api.anthropic.com. OpenCode default: anthropic/claude-opus-4-7. (Needs Anthropic API credits.)"
-}
-alias use_claude_api=use-claude-api
+# # Route Claude Code + OpenCode to direct Anthropic API (CLAUDE_API_KEY).
+# # Needs an Anthropic API credit balance at console.anthropic.com.
+# use-claude-api() {
+#     unset ANTHROPIC_AUTH_TOKEN
+#     unset ANTHROPIC_BASE_URL
+#     unset ANTHROPIC_MODEL
+#     export ANTHROPIC_API_KEY="$CLAUDE_API_KEY"
+#     _set_opencode_model "anthropic/claude-opus-4-7"
+#     echo "Switched to direct Anthropic API. Claude Code routes to api.anthropic.com. OpenCode default: anthropic/claude-opus-4-7. (Needs Anthropic API credits.)"
+# }
+# alias use_claude_api=use-claude-api
 
 # Photoblog
 alias photoblog="python ~/public/photoblog/scripts/editor.py"
 
-# aichat wrappers
-#   chat                                  REPL, resumes the rolling "default" session
-#   chat "question"                       one-shot
-#   chat -s research                      REPL, named session
-#   chat -m gemini:gemini-2.5-pro "..."   one-shot on a specific model
+# opencode wrappers
+#   chat                                  REPL (opencode TUI, pick or continue a session)
+#   chat "question"                       one-shot (opencode run)
+#   chat -s SESSION                       REPL in session SESSION (or opencode session id)
+#   chat -m PROVIDER/MODEL "..."          one-shot on a specific model
+#   chat -m PROVIDER:MODEL "..."          aichat-style colon also works, converted to /
 #   chats                                 view invocation history (timestamp, model, session)
 chat() {
     if [[ "$1" == "help" || "$1" == "-h" || "$1" == "--help" ]]; then
@@ -608,82 +650,90 @@ chat() {
 chat cheatsheet
 
 USAGE
-  chat                              REPL, resumes the "default" rolling session
-  chat "question"                   one-shot, no session
-  chat -s NAME                      REPL, named session NAME (created if new)
-  chat -m PROVIDER:MODEL "..."      one-shot on a specific model
-  chat -m PROVIDER:MODEL -s NAME    REPL with both pinned
+  chat                              REPL (opencode TUI, pick or continue a session)
+  chat "question"                   one-shot, no session (opencode run)
+  chat -s SESSION "question"        one-shot in session SESSION
+  chat -s SESSION                   REPL in session SESSION
+  chat -m PROVIDER/MODEL "..."      one-shot on a specific model
+  chat -m PROVIDER:MODEL "..."      aichat-style colon is converted to a slash
+  chat -m MODEL -s SESSION "..."    both pinned
   chat help                         this cheatsheet
   chats                             view invocation history (less +G on the log)
 
-REPL COMMANDS  (inside the chat)
-  .model <TAB>                      switch model, tab-completes
-  .session NAME                     open or resume a named session
-  .info                             show current model and session
-  .help                             full aichat REPL help
-  .exit  / Ctrl-D                   save session and quit
+REPL  (inside the opencode TUI)
+  /new                              start a new session
+  /continue                         continue the last session
+  /sessions                         switch or resume a session
+  /models                           switch model
+  /help                             full opencode help
 
-PROVIDERS  (use as PROVIDER:MODEL with -m or inside REPL with .model)
-  poe          Poe (uses bot names: Claude-Opus-4.7, Claude-Sonnet-4.6, GPT-5.4, Gemini-3.1-Pro, ...)
-  claude       Direct Anthropic API (needs API credits)
-  gemini       Google AI Studio (free tier)
-  github       GitHub Models (free tier; 8k per-request cap)
-  nvidia       NVIDIA build (free tier)
-  cerebras     Cerebras (free tier; 8k per-request cap)
-  openrouter   OpenRouter (many ":free" models, plus paid)
-  mistral      Mistral La Plateforme (free tier)
+PROVIDERS  (use as PROVIDER/MODEL with -m)
+  opencode    OpenCode Zen (opencode/deepseek-v4-flash-free is the default)
+  gemini      Google AI Studio
+  github      GitHub Models
+  openrouter  OpenRouter
+  ...         anything `opencode models` lists
 
 LISTS
-  aichat --list-models              all configured models
-  aichat --list-sessions            all saved sessions
-  aichat --sync-models              refresh aichat's model catalog
+  opencode models                   all available models
+  opencode session list             saved sessions
 
 FILES
-  ~/.config/aichat/config.yaml      add/remove models, set defaults
-  ~/.config/aichat/sessions/        saved session transcripts
-  ~/.config/aichat/messages.md      built-in flat log of one-shots
-  ~/.config/aichat/invocations.log  what `chat` logs (timestamp, model, session)
+  ~/.config/opencode/opencode.json  model + provider config
+  ~/.config/opencode/invocations.log  what `chat` logs (timestamp, model, session)
 EOF
         return 0
     fi
 
     local args=("$@")
-    [[ ${#args[@]} -eq 0 ]] && args=(-s default)
-
-    # Detect model and session from args for the invocation log
-    local model="(config default)" session="(ephemeral)" i
+    local msgs=() extra=() model="" session="" m i
     for (( i=0; i<${#args[@]}; i++ )); do
         case "${args[$i]}" in
-            -m|--model)   model="${args[$((i+1))]}" ;;
-            -s|--session) session="${args[$((i+1))]:-default}" ;;
+            -m|--model)
+                m="${args[$((i+1))]:-}"
+                model="${m//:/\/}"
+                [[ -n "$model" ]] && extra+=(--model "$model")
+                i=$((i+1))
+                ;;
+            -s|--session)
+                session="${args[$((i+1))]:-}"
+                [[ -n "$session" ]] && extra+=(--session "$session")
+                i=$((i+1))
+                ;;
+            -*) extra+=("${args[$i]}") ;;
+            *)  msgs+=("${args[$i]}") ;;
         esac
     done
 
-    mkdir -p "$HOME/.config/aichat"
+    mkdir -p "$HOME/.config/opencode"
     printf '%s\tmodel=%s\tsession=%s\targs=%s\n' \
-        "$(date -Iseconds)" "$model" "$session" "${args[*]}" \
-        >> "$HOME/.config/aichat/invocations.log"
+        "$(date -Iseconds)" "${model:-(config default)}" "${session:-(ephemeral)}" "${args[*]}" \
+        >> "$HOME/.config/opencode/invocations.log"
 
-    aichat "${args[@]}"
-}
-alias chats='less +G ~/.config/aichat/invocations.log'
-
-# Print current AI routing for Claude Code and OpenCode
-check-claude-config() {
-    echo "Current configuration:"
-    echo "  ANTHROPIC_API_KEY:    ${ANTHROPIC_API_KEY:+[SET]}"
-    echo "  ANTHROPIC_AUTH_TOKEN: ${ANTHROPIC_AUTH_TOKEN:+[SET]}"
-    echo "  ANTHROPIC_BASE_URL:   ${ANTHROPIC_BASE_URL:-[NOT SET]}"
-    echo "  ANTHROPIC_MODEL:      ${ANTHROPIC_MODEL:-[NOT SET, uses Claude Code default]}"
-    local cfg="$HOME/.config/opencode/opencode.json"
-    if [[ -f "$cfg" ]]; then
-        local m
-        m=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('model','[unset]'))" "$cfg" 2>/dev/null)
-        echo "  OpenCode default:     ${m:-[parse error]}"
+    if (( ${#msgs[@]} == 0 )); then
+        opencode "${extra[@]}"
     else
-        echo "  OpenCode default:     [no config file]"
+        opencode run "${extra[@]}" "${msgs[@]}"
     fi
 }
+alias chats='less +G ~/.config/opencode/invocations.log'
+
+# # Print current AI routing for Claude Code and OpenCode
+# check-claude-config() {
+#     echo "Current configuration:"
+#     echo "  ANTHROPIC_API_KEY:    ${ANTHROPIC_API_KEY:+[SET]}"
+#     echo "  ANTHROPIC_AUTH_TOKEN: ${ANTHROPIC_AUTH_TOKEN:+[SET]}"
+#     echo "  ANTHROPIC_BASE_URL:   ${ANTHROPIC_BASE_URL:-[NOT SET]}"
+#     echo "  ANTHROPIC_MODEL:      ${ANTHROPIC_MODEL:-[NOT SET, uses Claude Code default]}"
+#     local cfg="$HOME/.config/opencode/opencode.json"
+#     if [[ -f "$cfg" ]]; then
+#         local m
+#         m=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('model','[unset]'))" "$cfg" 2>/dev/null)
+#         echo "  OpenCode default:     ${m:-[parse error]}"
+#     else
+#         echo "  OpenCode default:     [no config file]"
+#     fi
+# }
 
 # News Reader
 alias iran_news="cd $HOME/public/news_reader && python run_pipeline.py"
