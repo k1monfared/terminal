@@ -634,6 +634,11 @@ libby_get ()
 # }
 # alias use_claude_api=use-claude-api
 
+alias oc="opencode"
+alias oca="opencode --auto"
+alias ocs="opencode -s"
+alias occ="opencode --continue"
+
 # Photoblog
 alias photoblog="python ~/public/photoblog/scripts/editor.py"
 
@@ -756,3 +761,10 @@ alias cs="source $bashscripts/cheatsheet.sh"
 
 # Home server (Nextcloud stack: hs-start / hs-pause / hs-end / hs-open / hs-help)
 source "$HOME/public/home_server/bin/aliases.sh"
+# Token Usage Dashboard aliases
+alias token-dash='cd ~/public/token_dashboard && python main.py'
+alias token-summary='cd ~/public/token_dashboard && python main.py summary'
+alias token-daily='cd ~/public/token_dashboard && python main.py daily'
+alias token-update='cd ~/public/token_dashboard && python main.py update'
+alias token-web='cd ~/public/token_dashboard && python main.py web'
+alias token-status='cd ~/public/token_dashboard && python main.py status'
