@@ -761,6 +761,9 @@ alias cs="source $bashscripts/cheatsheet.sh"
 
 # Home server (Nextcloud stack: hs-start / hs-pause / hs-end / hs-open / hs-help)
 source "$HOME/public/home_server/bin/aliases.sh"
+# Browse through khome's network (dedicated khome-proxy Firefox profile over an SSH SOCKS5 tunnel)
+#   kbrowse [URL...]   kbrowse status   kbrowse stop
+alias kbrowse="$HOME/public/home_server/bin/laptop/firefox-via-khome.sh"
 # Token Usage Dashboard aliases
 alias token-dash='cd ~/public/token_dashboard && python main.py'
 alias token-summary='cd ~/public/token_dashboard && python main.py summary'
