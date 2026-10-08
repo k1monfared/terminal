@@ -580,6 +580,14 @@ alias oca="opencode --auto"
 alias ocs="opencode -s"
 alias occ="opencode --continue"
 
+# Claude Code aliases (mirror the opencode ones above; oc -> cc)
+#   cca: opencode --auto -> claude --permission-mode auto (claude has no --auto)
+#   ccs: opencode -s ID  -> claude --resume [ID] (no value opens the session picker)
+alias cc="claude"
+alias cca="claude --permission-mode auto"
+alias ccs="claude --resume"
+alias ccc="claude --continue"
+
 # Photoblog
 alias photoblog="python3 ~/public/photoblog/scripts/editor.py"
 
