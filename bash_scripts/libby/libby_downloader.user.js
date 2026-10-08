@@ -10,7 +10,7 @@
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
 // @connect      *
-// @run-at       document-idle
+// @run-at       document-start
 // ==/UserScript==
 
 // Architecture:
@@ -51,6 +51,46 @@
     const slugify = s => (s || '').toLowerCase().normalize('NFKD')
         .replace(/[̀-ͯ]/g, '')
         .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'audiobook';
+
+    // -------------------------------------------------------------------------
+    // Early page-context hook (injected at document-start)
+    //
+    // The MP3 URLs are only resolvable with the per-spine crypto params that Libby
+    // receives as "-odread-cmpt-params" inside its openbook payload. Libby parses
+    // that payload (via JSON.parse) and then deletes the params from BIF before the
+    // player is usable, so the only reliable moment to grab them is during the
+    // parse. This hook is injected before any page script runs and stashes them in
+    // sessionStorage for the click-time collector below.
+    // -------------------------------------------------------------------------
+
+    const CMPT_KEY = 'libby_dl_cmpt';
+
+    const EARLY_PAGE_SCRIPT = `(function () {
+        if (window.__libbyDlCmptInstalled) return;
+        window.__libbyDlCmptInstalled = true;
+
+        function grab(ret) {
+            try {
+                if (ret && typeof ret === 'object' && ret.b && ret.b['-odread-cmpt-params'] != null) {
+                    sessionStorage.setItem('libby_dl_cmpt', JSON.stringify(Array.from(ret.b['-odread-cmpt-params'])));
+                    console.log('[Libby DL] Captured crypto params');
+                }
+            } catch (e) {}
+            return ret;
+        }
+
+        var orig = JSON.parse;
+        JSON.parse = function () { return grab(orig.apply(this, arguments)); };
+    })();`;
+
+    function injectEarlyCollector() {
+        if (document.getElementById('libby-dl-cmpt')) return;
+        const s = document.createElement('script');
+        s.id = 'libby-dl-cmpt';
+        s.textContent = EARLY_PAGE_SCRIPT;
+        (document.head || document.documentElement).appendChild(s);
+    }
+    injectEarlyCollector();
 
     // -------------------------------------------------------------------------
     // Page-context collector (injected as <script> — no Xray wrapper restrictions)
