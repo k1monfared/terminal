@@ -18,6 +18,13 @@ case ":$PATH:" in *":$bashscripts:"*) ;; *) PATH="$PATH:$bashscripts:$bashscript
 
 export EDITOR="${EDITOR:-code}"
 
+## silence the terminal bell (zsh line editor, readline, anything that prints BEL)
+if [ -n "${ZSH_VERSION:-}" ]; then
+    unsetopt BEEP LIST_BEEP HIST_BEEP 2>/dev/null
+elif [ -n "${BASH_VERSION:-}" ]; then
+    bind 'set bell-style none' 2>/dev/null
+fi
+
 ## to access this file without looking for it every time
 alias aliases_edit="$EDITOR $bashscripts/bashrc_aliases &"
 alias aliases_list="cat $bashscripts/bashrc_aliases"
@@ -88,8 +95,10 @@ ssh() {
         host="${host##*@}"; host="${host%%.*}"; host="${host%-ts}"
         local col; col="$(_machine_tmux_color "$host")"
         tmux set-window-option @remote_label "#[fg=$col bold] →$host#[default]" >/dev/null 2>&1
+        tmux set-window-option @remote_host "$host" >/dev/null 2>&1   # plain name for the tab title
         command ssh "$@"; local rc=$?
         tmux set-window-option -u @remote_label >/dev/null 2>&1
+        tmux set-window-option -u @remote_host >/dev/null 2>&1
         return $rc
     fi
     command ssh "$@"
