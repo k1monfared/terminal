@@ -1,5 +1,7 @@
-source_folder="/media/$USER/9C33-6BBD/DCIM/100CANON"
-destination_folder="/home/$USER/Pictures/canon_m5"
+#!/bin/bash
+. "$(cd "$(dirname "$0")" && pwd)/lib/platform.sh"
+source_folder="$MEDIA_ROOT/9C33-6BBD/DCIM/100CANON"
+destination_folder="$HOME/Pictures/canon_m5"
 mkdir -p -- "$destination_folder"
 echo "copying from '$source_folder' to '$destination_folder'..."
 cp -rv $source_folder/*.* "$destination_folder"
@@ -15,5 +17,5 @@ fi
 
 curr_dir=$PWD
 cd "$destination_folder"
-organize_photos_monthly.sh
+"$(dirname "$0")/organize_photos_monthly.sh"
 cd "$curr_dir"

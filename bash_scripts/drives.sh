@@ -1,6 +1,42 @@
-#!/bin/bash
-# drives.sh - External USB drive utilities
-# Source this from bashrc_aliases
+#!/usr/bin/env bash
+# drives.sh - external drive utilities, one front-end, two backends (Linux / macOS).
+#   drives.sh eject                  safely remove USB / external drives
+#   drives.sh fix_mount [dev] [lbl]  (Linux only) repair + mount a dirty NTFS USB drive
+# bashrc_aliases wraps these as the `eject` and `fix_mount` commands.
+# Works on bash 3.2 (stock macOS).
+
+. "$(cd "$(dirname "$0")" && pwd)/lib/platform.sh"
+
+# ---------------------------------------------------------------- Linux backend
+# _list_mounted_drives: prints "device|mountpoint|size|model" per mounted USB partition
+_list_mounted_drives_linux() {
+    local line NAME TYPE MOUNTPOINT SIZE
+    while IFS= read -r line; do
+        eval "$line"
+        [[ "$TYPE" != "part" ]] && continue
+        [[ -z "$MOUNTPOINT" ]] && continue
+        [[ "$MOUNTPOINT" == /snap/* || "$MOUNTPOINT" == /boot/* ]] && continue
+        [[ "$MOUNTPOINT" == "/" || "$MOUNTPOINT" == "[SWAP]" || "$MOUNTPOINT" == /run/* ]] && continue
+        _is_usb "$NAME" || continue
+        echo "$NAME|$MOUNTPOINT|$SIZE|$(_disk_model "$NAME")"
+    done < <(lsblk -Ppo NAME,TYPE,MOUNTPOINT,SIZE)
+}
+
+# _eject_one DEVICE MOUNTPOINT: unmount + power off, printing progress. returns 1 on failure
+_eject_one_linux() {
+    local dev="$1" mnt="$2"
+    local parent="/dev/$(echo "${dev##*/}" | sed 's/[0-9]*$//')"
+    printf "  Syncing..."; sync; printf " done\n"
+    printf "  Unmounting %s..." "$mnt"
+    if sudo umount "$mnt" 2>/dev/null; then printf " done\n"
+    else printf " \033[31mfailed\033[0m\n"; return 1; fi
+    printf "  Powering off %s..." "$parent"
+    if command -v udisksctl &>/dev/null && udisksctl power-off -b "$parent" 2>/dev/null; then
+        printf " done\n"
+    else
+        printf " \033[2m(safe to unplug)\033[0m\n"
+    fi
+}
 
 # Check if a block device is USB-connected
 _is_usb() {
@@ -16,12 +52,37 @@ _disk_model() {
     lsblk -ndo MODEL "/dev/$disk" 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
 }
 
-# Fix and mount dirty NTFS USB drives
+# ---------------------------------------------------------------- macOS backend
+# diskutil field helper: _du_field IDENT "Mount Point"
+_du_field() { diskutil info "$1" 2>/dev/null | awk -F': *' -v k="$2" '$1 ~ "^ *"k"$" {print $2; exit}'; }
+
+_list_mounted_drives_mac() {
+    local id mnt size model
+    # `external` also lists mounted disk images (.dmg); skip those blocks
+    for id in $(diskutil list external | awk '/^\/dev\//{skip=/disk image/} !skip && match($0,/disk[0-9]+s[0-9]+/){print substr($0,RSTART,RLENGTH)}' | sort -u); do
+        mnt="$(_du_field "$id" "Mount Point")"
+        [[ -z "$mnt" ]] && continue
+        size="$(_du_field "$id" "Volume Total Space" | sed 's/ (.*//')"
+        [[ -z "$size" ]] && size="$(_du_field "$id" "Disk Size" | sed 's/ (.*//')"
+        model="$(_du_field "$id" "Device / Media Name")"
+        echo "/dev/$id|$mnt|$size|$model"
+    done
+}
+
+_eject_one_mac() {
+    local dev="$1" mnt="$2"
+    printf "  Ejecting %s..." "$mnt"
+    if diskutil eject "$mnt" >/dev/null 2>&1; then printf " done\n"
+    else printf " \033[31mfailed\033[0m (is something still using it?)\n"; return 1; fi
+}
+
+# Fix and mount dirty NTFS USB drives (Linux only: macOS mounts NTFS read-only on its own)
 # Usage: fix_mount [device] [label]
 #   No args: auto-detects unmounted NTFS USB partitions
 #   device:  specific partition like /dev/sda1
 #   label:   mount directory name under /media/$USER/ (default: external)
 fix_mount() {
+    require_os linux "fix_mount (NTFS repair)"
     local device="$1"
     local label="${2:-external}"
 
@@ -56,7 +117,7 @@ fix_mount() {
         return 1
     fi
 
-    local mount_point="/media/$USER/$label"
+    local mount_point="$MEDIA_ROOT/$label"
 
     echo "Fixing $device..."
     sudo ntfsfix "$device" || { echo "ntfsfix failed"; return 1; }
@@ -172,22 +233,14 @@ _checkbox_select() {
 # Single drive: confirms and ejects
 # Multiple drives: interactive checkbox selection
 eject() {
-    local drive_data=()
-    local drive_labels=()
-    local NAME TYPE MOUNTPOINT SIZE
+    local drive_data=() drive_labels=() line dev mnt size model
 
     while IFS= read -r line; do
-        eval "$line"
-        [[ "$TYPE" != "part" ]] && continue
-        [[ -z "$MOUNTPOINT" ]] && continue
-        [[ "$MOUNTPOINT" == /snap/* || "$MOUNTPOINT" == /boot/* ]] && continue
-        [[ "$MOUNTPOINT" == "/" || "$MOUNTPOINT" == "[SWAP]" || "$MOUNTPOINT" == /run/* ]] && continue
-        _is_usb "$NAME" || continue
-
-        local model=$(_disk_model "$NAME")
-        drive_data+=("$NAME|$MOUNTPOINT|$SIZE|$model")
-        drive_labels+=("$(printf "%-8s  %-24s  %5s  →  %s" "${NAME##*/}" "$model" "$SIZE" "$MOUNTPOINT")")
-    done < <(lsblk -Ppo NAME,TYPE,MOUNTPOINT,SIZE)
+        [[ -z "$line" ]] && continue
+        IFS='|' read -r dev mnt size model <<< "$line"
+        drive_data+=("$line")
+        drive_labels+=("$(printf "%-8s  %-24s  %5s  →  %s" "${dev##*/}" "$model" "$size" "$mnt")")
+    done < <(_list_mounted_drives_$OS_KIND)
 
     local count=${#drive_data[@]}
 
@@ -199,7 +252,6 @@ eject() {
     local selected_indices=()
 
     if [[ $count -eq 1 ]]; then
-        local dev mnt size model
         IFS='|' read -r dev mnt size model <<< "${drive_data[0]}"
         printf "  \033[1;36m?\033[0m Safely remove \033[1m%s\033[0m (%s)? [Y/n] " "${model:-$dev}" "$dev"
         read -r confirm </dev/tty
@@ -210,35 +262,20 @@ eject() {
         result=$(_checkbox_select "Select drives to safely remove:" "${drive_labels[@]}")
         rc=$?
         [[ $rc -ne 0 || -z "$result" ]] && { echo "  No drives selected."; return 0; }
-        mapfile -t selected_indices <<< "$result"
+        while IFS= read -r line; do selected_indices+=("$line"); done <<< "$result"
     fi
 
     echo ""
+    local idx
     for idx in "${selected_indices[@]}"; do
         [[ -z "$idx" ]] && continue
-        local dev mnt size model
         IFS='|' read -r dev mnt size model <<< "${drive_data[$idx]}"
-        local parent="/dev/$(echo "${dev##*/}" | sed 's/[0-9]*$//')"
-
-        printf "  Syncing..."
-        sync
-        printf " done\n"
-
-        printf "  Unmounting %s..." "$mnt"
-        if sudo umount "$mnt" 2>/dev/null; then
-            printf " done\n"
-        else
-            printf " \033[31mfailed\033[0m\n"
-            continue
-        fi
-
-        printf "  Powering off %s..." "$parent"
-        if command -v udisksctl &>/dev/null && udisksctl power-off -b "$parent" 2>/dev/null; then
-            printf " done\n"
-        else
-            printf " \033[2m(safe to unplug)\033[0m\n"
-        fi
-
+        _eject_one_$OS_KIND "$dev" "$mnt" || continue
         printf "  \033[32m✓\033[0m %s safely removed\n\n" "${model:-$dev}"
     done
 }
+
+case "${1:-}" in
+    eject|fix_mount) "$@" ;;
+    *) echo "usage: drives.sh eject | fix_mount [device] [label]" >&2; exit 1 ;;
+esac

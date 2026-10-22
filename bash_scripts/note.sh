@@ -1,4 +1,5 @@
 #!/bin/sh
+. "$(cd "$(dirname "$0")" && pwd)/lib/platform.sh"
 
 ## date format ##
 DATETIME=$(date +"%Y%m%d_%H%M%S")
@@ -48,7 +49,7 @@ if [ -n "$FIRST_LINE" ]; then
     printf '%s\n' "$FIRST_LINE" > "$FILE"
 fi
 
-code "$FILE" 2>/dev/null &
+$EDITOR "$FILE" 2>/dev/null &
 echo "file is saved at the following address:"
 echo "$FILE"
 echo "$FILE" >> "$drafts_folder/list"

@@ -16,19 +16,19 @@ C_WHITE='\033[37m'
 
 # Each entry: "GROUP|COMMAND|DESCRIPTION|ACTUAL_COMMAND"
 ENTRIES=(
-    "System|hib|Hibernate|sudo systemctl hibernate"
-    "System|bat|Better cat|batcat"
-    "System|ip|Public IP info|curl -s ipinfo.io"
-    "System|vnc|VNC server|~/opt/vnc-manager.sh"
+    "System|hib|Hibernate / sleep|hib"
+    "System|bat|Better cat|bat"
+    "System|myip|Public IP info|myip"
+    "System|vnc|VNC server|vnc"
     "System|plotbills|Plot bills|bash \$HOME/Documents/money/bills/plot_bills.sh"
-    "System|rotate|Rotate display|sh \$bashscripts/rotate.sh"
-    "System|brightness|Screen brightness|sh \$bashscripts/brightness.sh"
+    "System|rotate|Rotate display|rotate"
+    "System|brightness|Screen brightness|brightness"
 
-    "Packages|ins|Install package|sudo apt install"
-    "Packages|upd|Update pkg list|sudo apt update"
-    "Packages|upg|Upgrade all|sudo apt upgrade -y"
-    "Packages|remove|Remove package|sudo apt remove"
-    "Packages|upg-secure|Security upgrade|sudo unattended-upgrade"
+    "Packages|ins|Install package|ins"
+    "Packages|upd|Update pkg list|upd"
+    "Packages|upg|Upgrade all|upg"
+    "Packages|remove|Remove package|remove"
+    "Packages|upg-secure|Security upgrade|upg-secure"
 
     "Notes|note|New timestamped note|sh \$bashscripts/note.sh"
     "Notes|n|Quick note append|sh \$bashscripts/quicknote.sh"
@@ -118,29 +118,52 @@ ENTRIES=(
     "Jobsearch|tflush-add|Queue a row|tflush add '<json>'"
 )
 
+# Only show what exists on this machine: an entry stays if its name is a defined
+# alias/function/command, or what it would run is (sh/bash/python script file, or program).
+_entry_ok() {
+    local cmd="$1" actual="$2" w
+    type "$cmd" >/dev/null 2>&1 && return 0
+    eval "w=( $actual )" 2>/dev/null || return 1
+    case "${w[0]}" in
+        sh|bash|python|python3|sudo) [[ -e "${w[1]}" ]] || type "${w[1]}" >/dev/null 2>&1 ;;
+        cd) return 1 ;;
+        *) type "${w[0]}" >/dev/null 2>&1 ;;
+    esac
+}
+_avail=()
+for _e in "${ENTRIES[@]}"; do
+    IFS='|' read -r _g _c _d _a <<< "$_e"
+    # "${_a%% *}" etc. are expanded by eval above; keep the entry if resolvable
+    _entry_ok "$_c" "$_a" && _avail+=("$_e")
+done
+ENTRIES=("${_avail[@]}")
+unset _avail _e _g _c _d _a
+
 # Group display order and colors
-declare -A _GRP_COLORS
-_GRP_COLORS=(
-    ["System"]="\033[1;36m"
-    ["Packages"]="\033[1;33m"
-    ["Notes"]="\033[1;32m"
-    ["Memory"]="\033[1;35m"
-    ["Search"]="\033[1;34m"
-    ["Git"]="\033[1;31m"
-    ["Files"]="\033[1;36m"
-    ["Passwords"]="\033[1;33m"
-    ["Backup"]="\033[1;31m"
-    ["Photos"]="\033[1;35m"
-    ["Media"]="\033[1;34m"
-    ["Projects"]="\033[1;32m"
-    ["API"]="\033[1;36m"
-    ["VPN"]="\033[1;33m"
-    ["News"]="\033[1;34m"
-    ["Todo"]="\033[1;35m"
-    ["Drives"]="\033[1;31m"
-    ["Tools"]="\033[1;32m"
-    ["Jobsearch"]="\033[1;33m"
-)
+# group -> color (a case, not an associative array, so it runs on bash 3.2 too)
+_grp_color() {
+    case "$1" in
+        System) printf '%s' "\033[1;36m" ;;
+        Packages) printf '%s' "\033[1;33m" ;;
+        Notes) printf '%s' "\033[1;32m" ;;
+        Memory) printf '%s' "\033[1;35m" ;;
+        Search) printf '%s' "\033[1;34m" ;;
+        Git) printf '%s' "\033[1;31m" ;;
+        Files) printf '%s' "\033[1;36m" ;;
+        Passwords) printf '%s' "\033[1;33m" ;;
+        Backup) printf '%s' "\033[1;31m" ;;
+        Photos) printf '%s' "\033[1;35m" ;;
+        Media) printf '%s' "\033[1;34m" ;;
+        Projects) printf '%s' "\033[1;32m" ;;
+        API) printf '%s' "\033[1;36m" ;;
+        VPN) printf '%s' "\033[1;33m" ;;
+        News) printf '%s' "\033[1;34m" ;;
+        Todo) printf '%s' "\033[1;35m" ;;
+        Drives) printf '%s' "\033[1;31m" ;;
+        Tools) printf '%s' "\033[1;32m" ;;
+        Jobsearch) printf '%s' "\033[1;33m" ;;
+    esac
+}
 
 _GRP_ORDER=("System" "Packages" "Notes" "Memory" "Search" "Git" "Files" "Passwords" "Backup" "Photos" "Media" "Projects" "API" "VPN" "News" "Todo" "Drives" "Tools" "Jobsearch")
 
@@ -164,7 +187,7 @@ show_table() {
     printf "${C_RESET}\n\n"
 
     for group in "${_GRP_ORDER[@]}"; do
-        local color="${_GRP_COLORS[$group]}"
+        local color="$(_grp_color "$group")"
         local items=()
 
         for entry in "${ENTRIES[@]}"; do
@@ -211,9 +234,10 @@ count_group() {
 pick_group() {
     local lines=()
     for group in "${_GRP_ORDER[@]}"; do
-        local color="${_GRP_COLORS[$group]}"
+        local color="$(_grp_color "$group")"
         local n
         n=$(count_group "$group")
+        [[ "$n" -eq 0 ]] && continue
         lines+=("$(printf "%b▸ %-12s%b  %b%d commands%b" "$color" "$group" "$C_RESET" "$C_DIM" "$n" "$C_RESET")")
     done
 
@@ -235,7 +259,7 @@ pick_group() {
 # ── Level 2: pick a command inside the chosen group ─────────────────────────
 pick_command() {
     local target_group="$1"
-    local color="${_GRP_COLORS[$target_group]}"
+    local color="$(_grp_color "$target_group")"
     local lines=()
 
     for entry in "${ENTRIES[@]}"; do
@@ -288,7 +312,7 @@ main() {
 
     # Extract group name (strip ANSI, grab word after ▸)
     local group_name
-    group_name=$(echo "$group_line" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/^.*▸ *//' | awk '{print $1}')
+    group_name=$(echo "$group_line" | sed $'s/\033\\[[0-9;]*m//g' | sed 's/^.*▸ *//' | awk '{print $1}')
 
     # Level 2: pick command inside group
     local cmd_line
@@ -297,7 +321,7 @@ main() {
 
     # Extract command name
     local cmd_name
-    cmd_name=$(echo "$cmd_line" | sed 's/\x1b\[[0-9;]*m//g' | awk '{print $1}')
+    cmd_name=$(echo "$cmd_line" | sed $'s/\033\\[[0-9;]*m//g' | awk '{print $1}')
     local actual_cmd
     actual_cmd=$(lookup_command "$cmd_name")
 

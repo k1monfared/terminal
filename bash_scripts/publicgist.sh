@@ -1,11 +1,13 @@
 #!/bin/sh
+. "$(cd "$(dirname "$0")" && pwd)/lib/platform.sh"
  
 ## date format ##
 DATE=$(date +"%F")
 TIME=$(date +"%T")
   
 ## Save path ##
-BAK="/home/$USER/drafts"
+BAK="$drafts_folder"
+mkdir -p -- "$BAK"
 
 ## the name of the gist file ##
 input=$*
@@ -13,5 +15,5 @@ input=$*
 ## filename ##
 FILE="$BAK/gist-$DATE-$TIME-$input"
 
-gedit $FILE 2>/dev/null
+edit_wait "$FILE" 2>/dev/null
 gh gist create -p -w -f $FILE $FILE

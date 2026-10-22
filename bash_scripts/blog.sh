@@ -1,4 +1,5 @@
 #!/bin/sh
+. "$(cd "$(dirname "$0")" && pwd)/lib/platform.sh"
 
 ## date format ##
 YEAR=$(date +"%Y")

@@ -1,27 +1,44 @@
 #!/bin/bash
+# Works in bash (Linux, macOS) and zsh (macOS default). Just source this file from
+# ~/.bashrc or ~/.zshrc -- or run ./install.sh from the repo to do that for you.
+# OS differences live in lib/platform.sh and platform/*.sh, not in here.
 
 # initial setup
 
-## define bashscripts folder address in the ~/.bashrc and then source this file there. e.g.
-### bashscripts="/home/$USER/bash_scripts"
-### source "$bashscripts/bashrc_aliases"
-### export PATH="$PATH:$bashscripts"
+## locate this folder (override by setting $bashscripts before sourcing)
+if [ -z "${bashscripts:-}" ]; then
+    if [ -n "${BASH_VERSION:-}" ]; then _ba_src="${BASH_SOURCE[0]}"
+    elif [ -n "${ZSH_VERSION:-}" ]; then _ba_src="$(eval 'echo ${(%):-%x}')"
+    fi
+    bashscripts="$(cd "$(dirname "$_ba_src")" && pwd)"
+    unset _ba_src
+fi
+export bashscripts
+case ":$PATH:" in *":$bashscripts:"*) ;; *) PATH="$PATH:$bashscripts:$bashscripts/terminal_youtube_player" ;; esac
 
-export EDITOR="code"
+export EDITOR="${EDITOR:-code}"
 
 ## to access this file without looking for it every time
 alias aliases_edit="$EDITOR $bashscripts/bashrc_aliases &"
 alias aliases_list="cat $bashscripts/bashrc_aliases"
 
 
-## load private info
-export bashscripts
-source $bashscripts/bashrc.private
+## load private info (git-ignored; copy bashrc.private.example to bashrc.private)
+[[ -f "$bashscripts/bashrc.private" ]] && source "$bashscripts/bashrc.private"
 # additional AI provider keys (separate file so it can be edited / shared independently)
 [[ -f "$bashscripts/ai_providers.private" ]] && source "$bashscripts/ai_providers.private"
 
-## load drive utilities
-source $bashscripts/drives.sh
+## OS layer: helpers + defaults for the folders above, then per-OS / per-package-manager aliases
+source "$bashscripts/lib/platform.sh"
+export drafts_folder memory_address public_notes_folder private_notes_folder audiobooks_folder blog_folder
+[[ -f "$bashscripts/platform/$OS_KIND.sh" ]] && source "$bashscripts/platform/$OS_KIND.sh"
+if   have apt;  then source "$bashscripts/platform/apt.sh"
+elif have brew; then source "$bashscripts/platform/brew.sh"
+fi
+
+## drive utilities (Linux: lsblk/udisks, macOS: diskutil) -- run in bash, see drives.sh
+eject()     { bash "$bashscripts/drives.sh" eject "$@"; }
+fix_mount() { bash "$bashscripts/drives.sh" fix_mount "$@"; }
 
 # ---- machine identity: name + color for prompt & tmux (see also ssh() below) ----
 _machine_color() {        # ANSI attribute for the prompt, by hostname
@@ -41,13 +58,19 @@ _machine_tmux_color() {   # tmux color name for the ssh() tab tag, by hostname
 _machine_name() {         # display name (k1 shows as k76 until the host is renamed)
     case "$1" in k1) echo k76 ;; khome-ts) echo khome ;; *) echo "$1" ;; esac
 }
-MACHINE_NAME="$(_machine_name "$(hostname -s)")"
+MACHINE_NAME="${MACHINE_NAME:-$(_machine_name "$(hostname -s)")}"
 export MACHINE_NAME
 # colored prompt: user@<machine> in the machine's color, path in blue
-PS1='${debian_chroot:+($debian_chroot)}\[\033['"$(_machine_color "$(hostname -s)")"'m\]\u@'"$MACHINE_NAME"'\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
-case "$TERM" in
-    xterm*|rxvt*) PS1="\[\e]0;\u@$MACHINE_NAME: \w\a\]$PS1" ;;
-esac
+if [ -n "${ZSH_VERSION:-}" ]; then
+    _esc=$'\033'
+    PROMPT="%{${_esc}[$(_machine_color "$(hostname -s)")m%}%n@${MACHINE_NAME}%{${_esc}[00m%}:%{${_esc}[01;34m%}%~%{${_esc}[00m%}%# "
+    unset _esc
+else
+    PS1='${debian_chroot:+($debian_chroot)}\[\033['"$(_machine_color "$(hostname -s)")"'m\]\u@'"$MACHINE_NAME"'\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+    case "$TERM" in
+        xterm*|rxvt*) PS1="\[\e]0;\u@$MACHINE_NAME: \w\a\]$PS1" ;;
+    esac
+fi
 
 # ssh wrapper: inside tmux, tag the current window with the remote host name in
 # that host's color; clear the tag on disconnect. Plain ssh outside tmux.
@@ -75,21 +98,10 @@ ssh() {
 
 # system
 
-## solving ibus access problem
-export GTK_IM_MODULE=ibus
-export XMODIFIERS=@im=ibus
-export QT_IM_MODULE=ibus
+## (hibernate, gnome remote desktop, ibus ... -> platform/linux.sh; sleep/lock -> platform/mac.sh)
 
-## hibernation
-alias hib='sudo systemctl hibernate'
-
-## gnome remote desktop (RDP on port 3389). Quick toggle for security.
-alias remote_on='systemctl --user enable --now gnome-remote-desktop.service'
-alias remote_off='systemctl --user disable --now gnome-remote-desktop.service'
-alias remote_status='systemctl --user is-active gnome-remote-desktop.service'
-
-## bat
-alias bat="batcat"
+## bat is called batcat on Debian/Ubuntu
+[[ -n "$BAT_CMD" && "$BAT_CMD" != bat ]] && alias bat="$BAT_CMD"
 
 ## shortcuts
 alias search="sh $bashscripts/duckduckgo.sh"
@@ -103,15 +115,14 @@ alias myip="curl -s ipinfo.io"
 # todo.txt
 export TODOTXT_DEFAULT_ACTION=ls
 export TODOTXT_SORT_COMMAND='env LC_COLLATE=C sort -k 2,2 -k 1,1n'
-alias t='/home/$USER/opt/todo.txt_cli-2.12.0/todo.sh'
-complete -F _todo t
+if [[ -x "$HOME/opt/todo.txt_cli-2.12.0/todo.sh" ]]; then
+    alias t="$HOME/opt/todo.txt_cli-2.12.0/todo.sh"
+elif have todo.sh; then
+    alias t="todo.sh"
+fi
+[[ -n "${BASH_VERSION:-}" ]] && alias t >/dev/null 2>&1 && complete -F _todo t 2>/dev/null
 
-# apt
-alias ins="sudo apt install"
-alias upd="sudo apt update"
-alias upg="sudo apt upgrade -y"
-alias remove="sudo apt remove"
-alias upg-secure="sudo unattended-upgrade"
+# package manager aliases (ins upd upg remove) come from platform/apt.sh or platform/brew.sh
 
 # note
 alias note="sh $bashscripts/note.sh"
@@ -132,11 +143,11 @@ pvn () # automatically open a private note in the editor
 }
 
 # movie
-alias movie="$EDITOR /home/$USER/public/notes/movies.log"
+alias movie="$EDITOR $public_notes_folder/movies.log"
 
 # github
 alias git_switch="sh $bashscripts/git_switch.sh"
-alias git_who="cat /home/$USER/opt/git_config/active_git_account"
+alias git_who="cat $HOME/opt/git_config/active_git_account"
 # Force origin to the SSH URL so pushes use the SSH key, not gh's https
 # credential helper. Returns the SSH URL on success, non-zero if the URL is
 # unexpected. Safe to call when origin is already SSH.
@@ -183,12 +194,12 @@ git_push_all ()
 }
 git_activate ()
 {
-    echo $1 > "/home/$USER/opt/git_config/active_git_account"
+    mkdir -p "$HOME/opt/git_config" && echo $1 > "$HOME/opt/git_config/active_git_account"
 }
 git_clone ()
 {
     # get the active git account name
-    #account=$(<"/home/$USER/opt/git_config/active_git_account")
+    #account=$(<"$HOME/opt/git_config/active_git_account")
     account=$1
     git_link=$2
     # get everything from the first colon
@@ -219,12 +230,6 @@ alias gist="sh $bashscripts/gist.sh"
 alias gistp="sh $bashscripts/publicgist.sh"
 alias gg="sh $bashscripts/quickgist.sh"
 
-# solving ibus access problem
-export GTK_IM_MODULE=ibus
-export XMODIFIERS=@im=ibus
-export QT_IM_MODULE=ibus
-
-
 # vpn
 ## proton
 alias ppn="protonvpn-cli"
@@ -239,7 +244,7 @@ ret () { cat /tmp/capture.out; }
 
 # passowrds
 ## bitwarden
-alias bw="$HOME/opt/bw"
+have bw || [[ ! -x "$HOME/opt/bw" ]] || alias bw="$HOME/opt/bw"
 alias bwc="$bashscripts/bwc"
 alias bwu='export BW_SESSION="$(bw unlock --raw)"'
 alias bwl='export BW_SESSION='
@@ -258,6 +263,12 @@ dec ()
 }
 
 # search
+## fzf preview command for "FILE:LINE:..." candidates (bat if installed, else plain cat)
+_fzf_preview() {
+    if [[ -n "$BAT_CMD" ]]; then echo "$BAT_CMD --style=numbers --color=always --highlight-line {2} {1}"
+    else echo "cat {1}"; fi
+}
+
 ## search text within files and print relevant lines
 print_lines_with_context() {
     local file="$1"
@@ -317,7 +328,7 @@ search_text() {
     fzf --ansi --delimiter ':' \
         --color fg:242,bg:16,hl:108,fg+:15,bg+:236,hl+:168 \
         --color info:148,prompt:110,spinner:148,pointer:168,marker:168 \
-        --preview 'batcat --style=numbers --color=always --highlight-line {2} {1}' \
+        --preview "$(_fzf_preview)" \
         --preview-window=right:40%:wrap \
         --with-nth=1,2,3..)
 
@@ -368,7 +379,7 @@ remem() {
     fzf --ansi --delimiter ':' \
         --color fg:242,bg:16,hl:108,fg+:15,bg+:236,hl+:168 \
         --color info:148,prompt:110,spinner:148,pointer:168,marker:168 \
-        --preview 'batcat --style=numbers --color=always --highlight-line {2} {1}' \
+        --preview "$(_fzf_preview)" \
         --preview-window=right:40%:wrap \
         --with-nth=2,3..)
 
@@ -380,12 +391,9 @@ remem() {
 
 # Utilities
 ## desktop
-notify() {
-    strace -e open notify-send "$1" "$2"
-}
+notify() { notify_desktop "$1" "$2"; }
 
 alias plotbills='bash $HOME/Documents/money/bills/plot_bills.sh'
-alias vnc="~/opt/vnc-manager.sh"
 
 ## project creation
 new_project() {
@@ -437,7 +445,7 @@ new_project() {
     git init || return 1
 
     # Make sure there is something to commit (a fresh dir has nothing but .git)
-    if ! compgen -G '*' > /dev/null; then
+    if [[ -z "$(find . -mindepth 1 -maxdepth 1 ! -name .git | head -1)" ]]; then
         printf '# %s\n' "$clean_name" > readme.md
     fi
 
@@ -486,83 +494,7 @@ new_project() {
     echo "Project '$clean_name' created at $project_path"
 }
 
-# library
-libby_get ()
-{
-    # Each book downloads with a "<title-slug>__" filename prefix so multiple books
-    # in ~/Downloads do not collide. Process every pending manifest, stripping the
-    # prefix as files are moved into "$audiobooks_folder/Author - Title/".
-    shopt -s nullglob
-    local manifests=("$HOME/Downloads/"*"__libby_manifest.sh")
-    # legacy unprefixed manifest from older script versions
-    [[ -f "$HOME/Downloads/libby_manifest.sh" ]] && manifests+=("$HOME/Downloads/libby_manifest.sh")
-    if (( ${#manifests[@]} == 0 )); then
-        echo "No manifest found. Open a book in the Libby web player and click Download."
-        return 1
-    fi
-
-    # Split audiobooks from supplementary content (kind="supplement"). Audiobooks
-    # are processed first so supplements can be filed into the same folder.
-    local m audio=() supp=()
-    for m in "${manifests[@]}"; do
-        if grep -q '^kind="supplement"' "$m"; then supp+=("$m"); else audio+=("$m"); fi
-    done
-
-    local manifest title author metadata kind dir d f src clean base
-    local -a files
-    local -A audio_dir          # title -> destination folder, for supplements to join
-
-    # Pass 1: audiobooks
-    for manifest in "${audio[@]}"; do
-        title=""; author=""; metadata=""; kind=""; files=()
-        source "$manifest"
-        # Prefill the captured author as an editable line (readline): edit in place or
-        # press Enter to keep; clear it to file the book with no "Author - " prefix.
-        read -rep "Author for \"$title\": " -i "$author" author
-        dir="$audiobooks_folder${author:+$author - }$title"
-        audio_dir["$title"]="$dir"
-        mkdir -p "$dir"
-        for f in "${files[@]}"; do
-            src="$HOME/Downloads/$f"; clean="${f##*__}"   # strip "<slug>__" prefix (no-op for legacy names)
-            if [[ -f "$src" ]]; then mv "$src" "$dir/$clean"; echo "Moved: $clean"
-            else echo "Missing: $f (skipped)"; fi
-        done
-        if [[ -n "$metadata" && -f "$HOME/Downloads/$metadata" ]]; then
-            mv "$HOME/Downloads/$metadata" "$dir/${metadata##*__}"; echo "Moved: ${metadata##*__}"
-        fi
-        mv "$manifest" "$dir/libby_manifest.sh"
-        echo "Done: $dir"
-    done
-
-    # Pass 2: supplements — always go into the audiobook's folder. Match by title
-    # to a folder created this run, or already on disk ("<author> - <title>" / "<title>");
-    # only fall back to the supplement's own metadata if no audiobook folder exists.
-    for manifest in "${supp[@]}"; do
-        title=""; author=""; metadata=""; kind=""; files=()
-        source "$manifest"
-        dir=""
-        if [[ -n "${audio_dir["$title"]+x}" ]]; then
-            dir="${audio_dir["$title"]}"
-        else
-            for d in "$audiobooks_folder"*" - $title" "$audiobooks_folder$title"; do
-                [[ -d "$d" ]] && { dir="$d"; break; }
-            done
-        fi
-        [[ -z "$dir" ]] && dir="$audiobooks_folder${author:+$author - }$title"
-        mkdir -p "$dir"
-        for f in "${files[@]}"; do
-            src="$HOME/Downloads/$f"; clean="${f##*__}"
-            if [[ -f "$src" ]]; then mv "$src" "$dir/$clean"; echo "Moved: $clean"
-            else echo "Missing: $f (skipped)"; fi
-        done
-        # keep the audiobook's libby_manifest.sh; park the supplement's under its own name
-        if [[ -e "$dir/libby_manifest.sh" ]]; then base="${manifest##*/}"; mv "$manifest" "$dir/$base"
-        else mv "$manifest" "$dir/libby_manifest.sh"; fi
-        echo "Done (supplement): $dir"
-    done
-
-    ls "$audiobooks_folder" > "$public_notes_folder/audiobooks"
-}
+# library: libby_get is a script in this folder (bash, works with 3.2+)
 
 # AI tools: OpenCode is the default agent, using DeepSeek V4 Flash Free from
 # OpenCode Zen (~/.config/opencode/opencode.json sets model to
@@ -640,7 +572,7 @@ alias ocs="opencode -s"
 alias occ="opencode --continue"
 
 # Photoblog
-alias photoblog="python ~/public/photoblog/scripts/editor.py"
+alias photoblog="python3 ~/public/photoblog/scripts/editor.py"
 
 # opencode wrappers
 #   chat                                  REPL (opencode TUI, pick or continue a session)
@@ -690,29 +622,28 @@ EOF
         return 0
     fi
 
-    local args=("$@")
-    local msgs=() extra=() model="" session="" m i
-    for (( i=0; i<${#args[@]}; i++ )); do
-        case "${args[$i]}" in
+    local msgs=() extra=() model="" session="" m all="$*"
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
             -m|--model)
-                m="${args[$((i+1))]:-}"
+                m="${2:-}"
                 model="${m//:/\/}"
                 [[ -n "$model" ]] && extra+=(--model "$model")
-                i=$((i+1))
+                shift 2 2>/dev/null || shift
                 ;;
             -s|--session)
-                session="${args[$((i+1))]:-}"
+                session="${2:-}"
                 [[ -n "$session" ]] && extra+=(--session "$session")
-                i=$((i+1))
+                shift 2 2>/dev/null || shift
                 ;;
-            -*) extra+=("${args[$i]}") ;;
-            *)  msgs+=("${args[$i]}") ;;
+            -*) extra+=("$1"); shift ;;
+            *)  msgs+=("$1"); shift ;;
         esac
     done
 
     mkdir -p "$HOME/.config/opencode"
     printf '%s\tmodel=%s\tsession=%s\targs=%s\n' \
-        "$(date -Iseconds)" "${model:-(config default)}" "${session:-(ephemeral)}" "${args[*]}" \
+        "$(date_iso)" "${model:-(config default)}" "${session:-(ephemeral)}" "$all" \
         >> "$HOME/.config/opencode/invocations.log"
 
     if (( ${#msgs[@]} == 0 )); then
@@ -741,33 +672,38 @@ alias chats='less +G ~/.config/opencode/invocations.log'
 # }
 
 # News Reader
-alias iran_news="cd $HOME/public/news_reader && python run_pipeline.py"
+alias iran_news="cd $HOME/public/news_reader && python3 run_pipeline.py"
 
 # Phone Backup
 backup_phone ()
 {
-    cd /home/$USER/public/phone_backup && python phone_backup.py "$@"
+    cd "$HOME/public/phone_backup" && python3 phone_backup.py "$@"
 }
 
 # Laptop Backup
 backup_laptop ()
 {
-    cd /home/$USER/public/laptop_backup && python laptop_backup.py "$@"
+    cd "$HOME/public/laptop_backup" && python3 laptop_backup.py "$@"
 }
 
 # Cheatsheet
-alias cheat="source $bashscripts/cheatsheet.sh"
-alias cs="source $bashscripts/cheatsheet.sh"
+# (sourced, not run, so the interactive menu can execute your aliases; zsh needs ksh-style arrays)
+if [[ -n "${ZSH_VERSION:-}" ]]; then
+    cheat() { emulate -L ksh; source "$bashscripts/cheatsheet.sh" "$@"; }
+else
+    cheat() { source "$bashscripts/cheatsheet.sh" "$@"; }
+fi
+alias cs=cheat
 
 # Home server (Nextcloud stack: hs-start / hs-pause / hs-end / hs-open / hs-help)
-source "$HOME/public/home_server/bin/aliases.sh"
+[[ -f "$HOME/public/home_server/bin/aliases.sh" ]] && source "$HOME/public/home_server/bin/aliases.sh"
 # Browse through khome's network (dedicated khome-proxy Firefox profile over an SSH SOCKS5 tunnel)
 #   kbrowse [URL...]   kbrowse status   kbrowse stop
 alias kbrowse="$HOME/public/home_server/bin/laptop/firefox-via-khome.sh"
 # Token Usage Dashboard aliases
-alias token-dash='cd ~/public/token_dashboard && python main.py'
-alias token-summary='cd ~/public/token_dashboard && python main.py summary'
-alias token-daily='cd ~/public/token_dashboard && python main.py daily'
-alias token-update='cd ~/public/token_dashboard && python main.py update'
-alias token-web='cd ~/public/token_dashboard && python main.py web'
-alias token-status='cd ~/public/token_dashboard && python main.py status'
+alias token-dash='cd ~/public/token_dashboard && python3 main.py'
+alias token-summary='cd ~/public/token_dashboard && python3 main.py summary'
+alias token-daily='cd ~/public/token_dashboard && python3 main.py daily'
+alias token-update='cd ~/public/token_dashboard && python3 main.py update'
+alias token-web='cd ~/public/token_dashboard && python3 main.py web'
+alias token-status='cd ~/public/token_dashboard && python3 main.py status'

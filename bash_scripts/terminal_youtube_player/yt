@@ -6,43 +6,23 @@
 ## Or, yt VIDEI_ID which plays the video once
 ## In either cases it searches the ~/Videos folder and if finds the file with that ID then plays it, otherwise, it just downloads the video from youtube with its youtube video ID and then plays it
 
-ARGS=$(getopt -o r:h -l "repeat:,help" -n "getopt.sh" -- "$@");
-if [ $? -ne 0 ]; then
-    exit 1
-fi
-
+# plain option loop (BSD/macOS getopt has no long options)
 HELP=false
-
-eval set -- "$ARGS";
-while true; do
+while [ $# -gt 0 ]; do
     case "$1" in
-        -r|--repeat)
-            shift;
-            if [ -n "$1" ]; then
-                N=$1
-                shift;
-            fi
-            ;;
-        -h|--help)
-            HELP=true
-            shift;
-            ;;
-        --)
-            if [ -n "$2" ]; then
-                VID_ID=$2
-                shift;
-            fi
-            break;
-            ;;
+        -r|--repeat) N="$2"; shift 2 ;;
+        -h|--help)   HELP=true; shift ;;
+        --)          shift ;;
+        *)           VID_ID="$1"; shift ;;
     esac
 done
 
 #######################
 
 if [[ -n ${N} ]]; then
-    ytn ${N} ${VID_ID}
+    "$(dirname "$0")/ytn" ${N} ${VID_ID}
 else 
-	ytp ${VID_ID}
+	"$(dirname "$0")/ytp" ${VID_ID}
 fi
 
 if [[ ${HELP} == "true" ]]; then

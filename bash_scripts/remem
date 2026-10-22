@@ -1,5 +1,5 @@
 #!/bin/bash
-memory_address="$HOME/drafts/memory"
+. "$(cd "$(dirname "$0")" && pwd)/lib/platform.sh"
 # Read the file and store its contents in a variable
 file_contents=$(cat $memory_address)
 

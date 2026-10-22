@@ -1,0 +1,18 @@
+# Copy to bashrc.private (git-ignored) and fill in. Everything here is optional:
+# lib/platform.sh supplies the defaults shown in the comments.
+
+# folders used by the note / memory / blog / library scripts
+# drafts_folder="$HOME/drafts"
+# memory_address="$drafts_folder/memory"
+# public_notes_folder="$HOME/public/notes"
+# private_notes_folder="$HOME/private_notes"
+# audiobooks_folder="$HOME/audiobooks/"        # keep the trailing slash
+# blog_folder="$HOME/blog"
+
+# git_switch accounts (see git_switch.sh)
+# GIT_EMAIL_L2L=""
+# GIT_EMAIL_K1MONFARED=""
+# GIT_EMAIL_PHOTO=""
+
+# prompt/tmux label for this machine (default: short hostname)
+# MACHINE_NAME="mac"

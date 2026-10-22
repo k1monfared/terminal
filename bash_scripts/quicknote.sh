@@ -1,11 +1,13 @@
 #!/bin/sh
+. "$(cd "$(dirname "$0")" && pwd)/lib/platform.sh"
 
 ## date format ##
 DATE=$(date +"%F")
 TIME=$(date +"%T")
  
 ## Backup path ##
-BAK="$HOME/Documents/drafts"
+BAK="$drafts_folder"
+mkdir -p -- "$BAK"
 FILE=$BAK/note-$DATE-$TIME
 
 input=$*

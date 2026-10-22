@@ -1,4 +1,6 @@
 #!/bin/bash
+# needs exiftool (apt install libimage-exiftool-perl / brew install exiftool)
+command -v exiftool >/dev/null || { echo "exiftool not installed" >&2; exit 1; }
 
 DATE=$(exiftool "$1" | grep 'Create Date' | awk '{print $4}')
 TIME=$(exiftool "$1" | grep 'Create Date' | awk '{print $5}')

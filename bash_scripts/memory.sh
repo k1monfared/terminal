@@ -1,4 +1,5 @@
 #!/bin/bash
+. "$(cd "$(dirname "$0")" && pwd)/lib/platform.sh"
 # quickly add the content of the clipboard to a file organized with date
 # the structure of the file will be like:
 # 2023-01-01
@@ -23,7 +24,7 @@ indent_clipboard() {
     # Read the first argument passed to the function (the number of spaces)
     num_spaces=$1
     # Read the clipboard and store its contents in a variable
-    clipboard=$(xclip -o)
+    clipboard=$(clip_paste)
     # Add the specified number of spaces to the beginning of each line of the clipboard
     indented_clipboard=$(echo "$clipboard" | sed "s/^/$(printf ' %.0s' $(seq 1 $num_spaces))/")
     # Overwrite the clipboard with the indented text

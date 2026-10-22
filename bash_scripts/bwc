@@ -1,14 +1,17 @@
-#!/bin/bash -i
-shopt -s expand_aliases
+#!/bin/bash
+
+. "$(cd "$(dirname "$0")" && pwd)/lib/platform.sh"
 
 # Exit on error
 set -e
 
 # Command to copy to clipboard
-COPY="xclip -sel clip"
+COPY=clip_copy
+
+# bw: on PATH, or the manual download in ~/opt
+if ! command -v bw >/dev/null 2>&1; then bw() { "$HOME/opt/bw" "$@"; }; fi
 
 # Get list of all logins as json
-#logins="$($HOME/opt/bw list items)"
 logins="$(bw list items --search $1)"
 # Grab the name of every login and pip them into fzf
 username="$(echo $logins | jq -r '.[].login.username' | fzf)"

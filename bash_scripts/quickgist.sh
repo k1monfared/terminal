@@ -1,11 +1,13 @@
 #!/bin/sh
+. "$(cd "$(dirname "$0")" && pwd)/lib/platform.sh"
  
 ## date format ##
 DATE=$(date +"%F")
 TIME=$(date +"%T")
   
 ## Save path ##
-BAK="/home/$USER/drafts"
+BAK="$drafts_folder"
+mkdir -p -- "$BAK"
 
 ## filename ##
 FILE="$BAK/quickgist-$DATE-$TIME"

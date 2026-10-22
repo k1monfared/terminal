@@ -1,5 +1,4 @@
 #!/bin/bash
+. "$(cd "$(dirname "$0")" && pwd)/lib/platform.sh"
 
-filename="$*"
-
-xclip -sel c $filename
+cat -- "$@" | clip_copy

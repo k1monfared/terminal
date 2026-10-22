@@ -5,6 +5,7 @@
 # Written by Vivek Gite <http://www.cyberciti.biz/>
 # (c) 2006 nixCraft under GNU GPL v2.0+
 # ----------------------------------------------------------------------------
+# needs cdparanoia + lame (apt install cdparanoia lame / brew install cdparanoia lame) and an optical drive
 read -p "Starting in 5 seconds ( to abort press CTRL + C ) " -t 5
 cdparanoia -B
 for i in *.wav

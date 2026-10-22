@@ -1,4 +1,5 @@
 #!/bin/bash
+. "$(cd "$(dirname "$0")" && pwd)/lib/platform.sh"
 
 #if [[ $(echo $*) ]]; then
 #    N=$*
@@ -6,6 +7,6 @@
 #    N=1
 #fi
 N=1
-FILE=$(tail -$N "/home/$USER/drafts/list" | head -1)
+FILE=$(tail -$N "$drafts_folder/list" | head -1)
 
-atom $FILE 2>/dev/null &
+$EDITOR "$FILE" 2>/dev/null &

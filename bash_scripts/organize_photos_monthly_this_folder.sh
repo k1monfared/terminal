@@ -1,10 +1,11 @@
 #!/bin/bash
 DIR="$PWD"
+HERE="$(cd "$(dirname "$0")" && pwd)"
 
 ls -p "$DIR/" | grep -v / > "$DIR/".templist
 
 while IFS='' read -r line || [ -n "$line" ]; do
-    CRDT=$(get_image_creation_yymm "$DIR/$line")
+    CRDT=$("$HERE/get_image_creation_yymm" "$DIR/$line")
     if [ $CRDT != '-' ]
     then
         if [ ! -d "$DIR/$CRDT" ]

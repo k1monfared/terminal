@@ -1,6 +1,6 @@
 # Terminal
 
-A collection of bash scripts, shell utilities, and LaTeX tools for everyday use on Linux.
+A collection of bash scripts, shell utilities, and LaTeX tools for everyday use on Linux (Ubuntu MATE etc.) and macOS.
 
 ## Overview
 
@@ -41,16 +41,31 @@ The main collection of scripts and shell aliases. Source `bashrc_aliases` from y
 |--------|-------------|
 | [latex/animate_pdf/](latex/animate_pdf/) | Embed GIF animations in PDF files using LaTeX and the `animate` package |
 
-## Setup
+## Setup (Linux or macOS)
 
 ```bash
-# In your ~/.bashrc, add:
-bashscripts="/home/$USER/bash_scripts"   # or wherever you cloned this
-source "$bashscripts/bashrc_aliases"
-export PATH="$PATH:$bashscripts"
+git clone https://github.com/k1monfared/terminal ~/public/terminal
+~/public/terminal/install.sh          # adds one `source` line to ~/.bashrc / ~/.zshrc
+~/public/terminal/install.sh --deps   # optional: also install fzf, bat, jq, exiftool, yt-dlp, ... via apt/brew
 ```
 
-The `bashrc.private` file (git-ignored) holds personal paths and API keys. Create your own with exports like `audiobooks_folder`, `memory_address`, `drafts_folder`, etc.
+Works in bash and zsh. Open a new terminal and run `cheat` to see every command available on this machine.
+
+### How the two systems share code
+
+| Where | What |
+|-------|------|
+| `bash_scripts/lib/platform.sh` | The only place that knows about OS differences: `clip_copy`/`clip_paste` (pbcopy / xclip / wl-copy), `open_path`, `browser`, `notify_desktop`, `play_media`, `edit_wait`, `date_iso`, `sed_inplace`, `MEDIA_ROOT`, `BAT_CMD`, plus defaults for the folders in `bashrc.private`. Every script sources it instead of calling `xclip`, `firefox`, `/home/$USER`, ... directly. |
+| `bash_scripts/platform/linux.sh` | Linux only: hibernate, GNOME remote desktop, ibus, `rotate`, `brightness`, `procmon`. |
+| `bash_scripts/platform/mac.sh` | macOS only: sleep/lock shortcuts. |
+| `bash_scripts/platform/apt.sh`, `brew.sh` | The same `ins upd upg remove` aliases on either package manager. |
+| `bash_scripts/drives.sh` | One `eject` front-end; `lsblk/udisks` backend on Linux, `diskutil` backend on macOS. `fix_mount` (NTFS) is Linux only. |
+
+The cheatsheet (`cheat`) hides entries that do not exist on the current machine, so Linux-only commands simply do not appear on a Mac. Scripts that are inherently Linux (`emptyphone.sh`, `rotate.sh`, `brightness.sh`, `procmon.sh`) are only wired up on Linux.
+
+To add something OS-specific: put the helper in `lib/platform.sh` (if scripts need it) or the alias in `platform/<os>.sh`; do not add `if uname` checks elsewhere.
+
+Personal settings live in `bash_scripts/bashrc.private` (git-ignored); see `bashrc.private.example`.
 
 ## License
 
