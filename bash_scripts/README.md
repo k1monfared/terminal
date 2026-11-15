@@ -144,7 +144,7 @@ The central configuration file. It defines aliases, shell functions, and environ
 |------------------|--------|
 | `libby_get` | Move downloaded Libby audiobook files into organized folder (uses manifest from browser userscript) |
 
-See [libby/README.md](libby/README.md) for the browser userscript that captures audiobook MP3s.
+The browser userscript that captures audiobook MP3s (and the Android app) now live in the private [loan_saver](https://github.com/k1monfared/loan_saver) repo (`~/public/loan_saver`).
 
 ---
 
@@ -210,7 +210,6 @@ See [libby/README.md](libby/README.md) for the browser userscript that captures 
 |--------|-------------|
 | [terminal_youtube_player/](terminal_youtube_player/) | Download and play YouTube videos from the terminal |
 | [rip_audio_cd/](rip_audio_cd/) | Rip audio CDs to MP3 |
-| [libby/](libby/) | Libby/OverDrive audiobook downloader (browser userscript) |
 | [new_machine_setup/](new_machine_setup/) | Checklist for setting up a new Linux machine |
 | [deprecated/overdrive/](deprecated/overdrive/) | (Deprecated) ODM-based OverDrive downloader |
 
