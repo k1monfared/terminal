@@ -15,18 +15,20 @@ Downloads audiobook MP3s from the OverDrive web player (replaces the old `.odm` 
 2. Click **Listen in browser** — this opens `*.listen.overdrive.com`
 3. Wait a moment for the player to load, then click the **⬇** button in the top-right corner
    1. this will take a while before it shows up, be patient. 
-4. All MP3 parts, a manifest, and a metadata log download to `~/Downloads`. Each file is prefixed with a per-book title slug (e.g. `im-okyoure-ok__001_Part01.mp3`, `im-okyoure-ok__libby_manifest.sh`) so you can download several books back-to-back without them colliding.
+4. All MP3 parts, a metadata log, and finally a manifest download to `~/Downloads`. Each file is prefixed with a title slug plus a unique per-run tag (e.g. `im-okyoure-ok-mfk3x2__Part001.mp3`, `im-okyoure-ok-mfk3x2__libby_manifest.sh`), so names never clash with leftovers from an earlier attempt or another book. The manifest is written last and lists only parts that downloaded, so once it appears the run is complete.
 5. In the terminal, run:
    ```
    libby_get
    ```
-   It processes every pending book in `~/Downloads`, prompting once per book. The author and title are captured automatically from the player, so you can just press Enter to keep them (type a name to override). Each book is moved to `$audiobooks_folder/Author - Title/`, the slug prefix is stripped from the filenames, and the metadata log comes along.
+   It processes every pending book in `~/Downloads`, prompting once per book. The author and title are captured automatically from the player, so you can just press Enter to keep them (type a name to override). For each book it gathers the files into a fresh, unique staging folder (`~/Downloads/.libby_stage.XXXXXX`), strips the prefix, and then moves that folder to `$audiobooks_folder/Author - Title/`. If the destination already exists, files are merged in but never overwritten; anything that would clash stays in the staging folder and is reported. Files Firefox renamed on a clash (`name(1).mp3`) are recovered automatically by matching their timestamp to the manifest's.
 
 ### Supplementary PDFs
 
 Some audiobooks come with publisher supplementary content (e.g. an enhancement PDF). On the loans page, expand **Supplementary content** and click **Read now in browser** — this opens a separate reader at `*.read.overdrive.com`, where the same ⬇ button appears. Click it to walk every page, assemble them into a single PDF, and download it named after the supplement's own title, e.g. `I'm OK—You're OK-<id>.pdf`. A title can have more than one supplement; open each and click ⬇ — each is saved with a distinct `-<id>` (derived from its own CRID) so they never collide even when they share a title. `libby_get` files them into the matching `Author - Title/` folder.
 
 ### Troubleshooting
+
+- **Files named `001_Part01.mp3` with no prefix, or `author=""` in the manifest:** Tampermonkey is running an outdated copy of the script. Hover the ⬇ button: the tooltip shows the running version (e.g. `v1.8.0`), and the console logs `[Libby DL] userscript vX`. If it is missing or old, paste the current `libby_downloader.user.js` into Tampermonkey again and save.
 
 - **Metadata log is empty / author blank:** you are likely running an old cached collection. After updating the script in Tampermonkey (Save), open the book in a **fresh tab** rather than reloading — `sessionStorage` from a previous click in the same tab can short-circuit collection. Confirm only one copy of the script is installed and that it reports the current `@version`.
 - **"Missing N part(s)" alert:** the player did not load some parts in time. Reload the player, let it fully load, and click ⬇ again.

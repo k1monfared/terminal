@@ -1,14 +1,81 @@
 #!/usr/bin/env bash
 # libby_get - file Libby downloads from ~/Downloads into "$audiobooks_folder/Author - Title/".
-# Each book downloads with a "<title-slug>__" filename prefix so multiple books in
-# ~/Downloads do not collide. Every pending manifest is processed, stripping the prefix
-# as files are moved. Needs only bash 3.2+ (so it runs on stock macOS too).
+# Each download run names its files "<title-slug>-<run>__..." so books and repeated
+# attempts never collide in ~/Downloads. For every manifest, its files are gathered
+# (resolving Firefox "(1)" renames) into a fresh, unique staging folder, the prefix is
+# stripped, and the whole folder is then moved to the destination. Nothing lands in
+# the final folder until the book is fully gathered, stale same-named files are never
+# mixed in, and existing files are never overwritten.
+# Needs only bash 3.2+ (so it runs on stock macOS too).
 . "$(cd "$(dirname "$0")" && pwd)/lib/platform.sh"
 
+dl="$HOME/Downloads"
+
+# mtime in epoch seconds (GNU stat on Linux, BSD stat on macOS)
+mtime() { if [ "$OS_KIND" = mac ]; then stat -f %m "$1"; else stat -c %Y "$1"; fi; }
+
+# Locate a file the userscript downloaded, even if Firefox renamed it on a name clash
+# ("x.mp3" -> "x(1).mp3", "x-1.mp3", "x (1).mp3"). Among the exact name and its renamed
+# variants, pick the one whose mtime is closest to the manifest's (within 2h), so a
+# stale file from an earlier book with the same name is never taken by mistake.
+# Prints the path, or nothing if no candidate fits.
+find_download() {   # find_download NAME REF_MTIME
+    local name="$1" ref="$2" stem ext c best="" bestd=999999 t d
+    if [[ "$name" == *.* ]]; then stem="${name%.*}"; ext=".${name##*.}"; else stem="$name"; ext=""; fi
+    for c in "$dl/$name" "$dl/$stem("*")$ext" "$dl/$stem ("*")$ext" "$dl/$stem-"[0-9]"$ext" "$dl/$stem-"[0-9][0-9]"$ext"; do
+        [[ -f "$c" ]] || continue
+        t=$(mtime "$c"); d=$(( t > ref ? t - ref : ref - t ))
+        (( d < bestd )) && { bestd=$d; best="$c"; }
+    done
+    (( bestd <= 7200 )) && printf '%s' "$best"
+}
+
+# Gather the sourced manifest's files (and metadata log) into a new unique staging
+# folder. Sets $stage and $missing.
+stage_files() {   # stage_files MANIFEST
+    local ref f clean src
+    ref=$(mtime "$1"); missing=0
+    stage=$(mktemp -d "$dl/.libby_stage.XXXXXX") || return 1
+    for f in "${files[@]}" ${metadata:+"$metadata"}; do
+        clean="${f##*__}"   # strip "<slug>__" prefix (no-op for legacy names)
+        src=$(find_download "$f" "$ref")
+        if [[ -n "$src" ]]; then
+            mv "$src" "$stage/$clean"
+            if [[ "${src##*/}" == "$f" ]]; then echo "Gathered: $clean"; else echo "Gathered: $clean (was ${src##*/})"; fi
+        else echo "Missing: $f (skipped)"; missing=$((missing + 1)); fi
+    done
+}
+
+# Move every file in staging dir $1 into destination $2. If $2 does not exist the
+# staging dir is renamed into place in one step. Never overwrites: a name that
+# already exists in the destination stays in staging and is reported.
+place() {   # place STAGE DEST
+    local stage="$1" dest="$2" f left=0
+    mkdir -p "$(dirname "$dest")"
+    if [[ ! -e "$dest" ]]; then mv "$stage" "$dest" && return 0; fi
+    for f in "$stage"/* "$stage"/.[!.]*; do
+        [[ -e "$f" ]] || continue
+        if [[ -e "$dest/${f##*/}" ]]; then echo "Exists, not overwritten: $dest/${f##*/}"; left=1
+        else mv "$f" "$dest/"; fi
+    done
+    if (( left )); then echo "Leftovers kept in: $stage"; else rmdir "$stage"; fi
+}
+
+# Park the manifest in the staging folder: as libby_manifest.sh, or under its own
+# name if the destination already has one (a supplement, or a second download).
+stage_manifest() {   # stage_manifest MANIFEST DEST
+    local mname="libby_manifest.sh"
+    [[ -e "$2/$mname" ]] && mname="${1##*/}"
+    mv "$1" "$stage/$mname"
+}
+
 shopt -s nullglob
-manifests=("$HOME/Downloads/"*"__libby_manifest.sh")
-# legacy unprefixed manifest from older script versions
-[[ -f "$HOME/Downloads/libby_manifest.sh" ]] && manifests+=("$HOME/Downloads/libby_manifest.sh")
+# Current naming ("<slug>-<run>__libby_manifest.sh"), plus legacy unprefixed names
+# from old script versions, including Firefox-renamed copies.
+manifests=()
+for m in "$dl/"*"__libby_manifest"*".sh" "$dl/libby_manifest.sh" "$dl/libby_manifest("*").sh" "$dl/libby_manifest-"[0-9]*".sh"; do
+    [[ -f "$m" ]] && manifests+=("$m")
+done
 if (( ${#manifests[@]} == 0 )); then
     echo "No manifest found. Open a book in the Libby web player and click Download."
     exit 1
@@ -24,19 +91,11 @@ done
 # title -> destination folder, for supplements to join (parallel arrays: no bash 4 needed)
 audio_titles=() audio_dirs=()
 
-move_files() {   # move_files DIR  (uses $files from the sourced manifest)
-    local f src clean
-    for f in "${files[@]}"; do
-        src="$HOME/Downloads/$f"; clean="${f##*__}"   # strip "<slug>__" prefix (no-op for legacy names)
-        if [[ -f "$src" ]]; then mv "$src" "$1/$clean"; echo "Moved: $clean"
-        else echo "Missing: $f (skipped)"; fi
-    done
-}
-
 # Pass 1: audiobooks
 for manifest in "${audio[@]}"; do
     title=""; author=""; metadata=""; kind=""; files=()
     source "$manifest"
+    echo; echo "== $title (${#files[@]} files, manifest ${manifest##*/})"
     # Prefill the captured author as an editable line (readline, bash 4+): edit in place or
     # press Enter to keep; clear it to file the book with no "Author - " prefix.
     if (( BASH_VERSINFO[0] >= 4 )); then
@@ -47,16 +106,14 @@ for manifest in "${audio[@]}"; do
     fi
     dir="$audiobooks_folder${author:+$author - }$title"
     audio_titles+=("$title"); audio_dirs+=("$dir")
-    mkdir -p "$dir"
-    move_files "$dir"
-    if [[ -n "$metadata" && -f "$HOME/Downloads/$metadata" ]]; then
-        mv "$HOME/Downloads/$metadata" "$dir/${metadata##*__}"; echo "Moved: ${metadata##*__}"
-    fi
-    mv "$manifest" "$dir/libby_manifest.sh"
+    stage_files "$manifest" || { echo "Could not create a staging folder"; continue; }
+    stage_manifest "$manifest" "$dir"
+    place "$stage" "$dir"
+    (( missing )) && echo "WARNING: $missing file(s) missing for \"$title\""
     echo "Done: $dir"
 done
 
-# Pass 2: supplements -- always go into the audiobook's folder. Match by title to a folder
+# Pass 2: supplements, always into the audiobook's folder. Match by title to a folder
 # created this run, or already on disk ("<author> - <title>" / "<title>"); only fall back
 # to the supplement's own metadata if no audiobook folder exists.
 for manifest in "${supp[@]}"; do
@@ -72,11 +129,9 @@ for manifest in "${supp[@]}"; do
         done
     fi
     [[ -z "$dir" ]] && dir="$audiobooks_folder${author:+$author - }$title"
-    mkdir -p "$dir"
-    move_files "$dir"
-    # keep the audiobook's libby_manifest.sh; park the supplement's under its own name
-    if [[ -e "$dir/libby_manifest.sh" ]]; then base="${manifest##*/}"; mv "$manifest" "$dir/$base"
-    else mv "$manifest" "$dir/libby_manifest.sh"; fi
+    stage_files "$manifest" || { echo "Could not create a staging folder"; continue; }
+    stage_manifest "$manifest" "$dir"
+    place "$stage" "$dir"
     echo "Done (supplement): $dir"
 done
 

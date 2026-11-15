@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Libby Audiobook Downloader
 // @namespace    https://github.com/
-// @version      1.7.6
+// @version      1.8.0
 // @description  Download audiobook MP3s (and supplementary-content PDFs) from the Libby/OverDrive web player (post-ODM era)
 // @match        https://*.listen.libbyapp.com/*
 // @match        https://*.read.libbyapp.com/*
@@ -30,6 +30,11 @@
 
 (function () {
     'use strict';
+
+    // Keep in sync with @version above. Shown on the button tooltip and written to
+    // the manifest, so an outdated Tampermonkey copy is easy to spot.
+    const SCRIPT_VERSION = '1.8.0';
+    console.log('[Libby DL] userscript v' + SCRIPT_VERSION);
 
     const URLS_KEY  = 'libby_dl_urls';
     const READY_KEY = 'libby_dl_ready';
@@ -883,7 +888,12 @@
         const slugify = s => (s || '').toLowerCase().normalize('NFKD')
             .replace(/[̀-ͯ]/g, '')
             .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'audiobook';
-        const prefix = slugify(meta.title || rawTitle) + '__';
+        // A per-run tag makes every download's filenames unique, so files left over in
+        // ~/Downloads from an earlier attempt (same book or another) can never clash.
+        // On a clash Firefox silently renames to "name(1).ext", which breaks the
+        // manifest's file list; a unique name avoids that entirely.
+        const runId  = Date.now().toString(36);
+        const prefix = slugify(meta.title || rawTitle) + '-' + runId + '__';
 
         // Single zero-padded part number: "Part017.mp3". Padding keeps the lexical
         // sort correct (Part017 before Part002 would be wrong unpadded); one number
@@ -897,15 +907,7 @@
         const capturedParts = new Set(parsed.map(p => p.part).filter(n => n != null));
         const missing = expectedParts.filter(n => !capturedParts.has(n));
 
-        const metadataName = `${prefix}libby_metadata.log`;
-        const manifest = [
-            `title="${safeTitle}"`,
-            `author="${safeAuthor}"`,
-            `metadata="${metadataName}"`,
-            `files=(${filenames.map(f => `"${f}"`).join(' ')})`
-        ].join('\n') + '\n';
-
-        downloadManifest(manifest, `${prefix}libby_manifest.sh`);
+        const metadataName = metadataLog ? `${prefix}libby_metadata.log` : '';
         if (metadataLog) downloadManifest(metadataLog, metadataName);
 
         // Download all parts in parallel — CDN URLs expire ~2 minutes after generation,
@@ -913,6 +915,21 @@
         const results = await Promise.allSettled(
             orderedUrls.map((url, i) => downloadPart(url, filenames[i]))
         );
+
+        // Write the manifest LAST and list only parts that actually downloaded, so
+        // its presence in ~/Downloads means this run is finished and libby_get never
+        // looks for files that do not exist.
+        const okFiles = filenames.filter((f, i) => results[i].status === 'fulfilled');
+        const manifest = [
+            `title="${safeTitle}"`,
+            `author="${safeAuthor}"`,
+            `metadata="${metadataName}"`,
+            `script_version="${SCRIPT_VERSION}"`,
+            `files=(${okFiles.map(f => `"${f}"`).join(' ')})`
+        ].join('\n') + '\n';
+        // Give the browser a moment to flush the part downloads to disk first.
+        await new Promise(r => setTimeout(r, 1500));
+        downloadManifest(manifest, `${prefix}libby_manifest.sh`);
 
         const failed = results.filter(r => r.status === 'rejected');
         let warn = '';
@@ -940,7 +957,7 @@
 
         const btn = document.createElement('button');
         btn.id    = 'libby-dl-btn';
-        btn.title = MODE === 'read' ? 'Download Supplementary PDF' : 'Download Audiobook';
+        btn.title = (MODE === 'read' ? 'Download Supplementary PDF' : 'Download Audiobook') + ` (v${SCRIPT_VERSION})`;
         btn.textContent = '⬇';
         Object.assign(btn.style, {
             position:     'fixed',
