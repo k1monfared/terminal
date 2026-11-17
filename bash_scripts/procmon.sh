@@ -81,6 +81,13 @@ trap 'rm -rf "$TMP"' EXIT
 
 NCPU=$(nproc)
 
+# nvidia-smi can be installed yet unusable (driver not loaded). Probe it once
+# so a broken driver disables GPU columns instead of killing the script.
+HAVE_NVIDIA=0
+if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L >/dev/null 2>&1; then
+    HAVE_NVIDIA=1
+fi
+
 read_proc_stat() {
     awk '/^cpu / {
         total=0; for (i=2;i<=NF;i++) total += $i
@@ -101,7 +108,7 @@ PIDSTAT_PID=$!
 
 # Optional NVIDIA per-process GPU sampling (best effort)
 NVIDIA_PID=""
-if command -v nvidia-smi >/dev/null 2>&1; then
+if [ "$HAVE_NVIDIA" = 1 ]; then
     nvidia-smi pmon -c "$DURATION" -d 1 \
         > "$TMP/nvpmon.out" 2>/dev/null &
     NVIDIA_PID=$!
@@ -143,7 +150,7 @@ read LOAD1 LOAD5 LOAD15 _ < /proc/loadavg
 
 # GPU summary line (NVIDIA only)
 GPU_SUMMARY=""
-if command -v nvidia-smi >/dev/null 2>&1; then
+if [ "$HAVE_NVIDIA" = 1 ]; then
     GPU_SUMMARY=$(nvidia-smi --query-gpu=name,utilization.gpu,utilization.memory,memory.used,memory.total \
         --format=csv,noheader,nounits 2>/dev/null | awk -F',' 'NR==1 {
             for (i=1;i<=NF;i++) gsub(/^ +| +$/, "", $i)

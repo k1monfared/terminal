@@ -724,3 +724,6 @@ alias token-daily='cd ~/public/token_dashboard && python3 main.py daily'
 alias token-update='cd ~/public/token_dashboard && python3 main.py update'
 alias token-web='cd ~/public/token_dashboard && python3 main.py web'
 alias token-status='cd ~/public/token_dashboard && python3 main.py status'
+
+# Claude Code usage and limits dashboard (claude_dash): ccd | ccd status | ccd stop | ccd restart
+alias ccd='$HOME/public/claude_dash/ccd'
